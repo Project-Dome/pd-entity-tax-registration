@@ -1,0 +1,21 @@
+<manifest projecttype="ACCOUNTCUSTOMIZATION">
+  <projectname>pd_entity_tax_registration</projectname>
+  <frameworkversion>1.0</frameworkversion>
+  <dependencies>
+    <features>
+      <feature required="true">SERVERSIDESCRIPTING</feature>
+      <feature required="true">CRM</feature>
+      <feature required="true">ACCOUNTING</feature>
+      <feature required="true">CREATESUITEBUNDLES</feature>
+    </features>
+    <!--
+    Dependência desativada junto com o deployment de Job do User Event
+    (customscript_pd_petr_tax_reg_ue.xml). customrecord_str_job é um custom record de projeto
+    de cliente e não existe na conta-alvo; exigi-lo aqui bloqueia o deploy.
+
+    <objects>
+      <object>customrecord_str_job</object>
+    </objects>
+    -->
+  </dependencies>
+</manifest>

@@ -1,0 +1,139 @@
+<customrecordtype scriptid="customrecord_pd_petr_validation_settings">
+  <accesstype>CUSTRECORDENTRYPERM</accesstype>
+  <allowattachments>T</allowattachments>
+  <allowinlinedeleting>T</allowinlinedeleting>
+  <allowinlinedetaching>T</allowinlinedetaching>
+  <allowinlineediting>T</allowinlineediting>
+  <allowmobileaccess>F</allowmobileaccess>
+  <allowquickadd>T</allowquickadd>
+  <allowquicksearch>T</allowquicksearch>
+  <allowuiaccess>T</allowuiaccess>
+  <description>Registro único de configuração das validações e atualizações automáticas do módulo PD | PETR (Entity Tax Registration).</description>
+  <enabledynamicgrid>F</enabledynamicgrid>
+  <enablekeywords>T</enablekeywords>
+  <enablemailmerge>F</enablemailmerge>
+  <enablenametranslation>F</enablenametranslation>
+  <enablenumbering>F</enablenumbering>
+  <enableoptimisticlocking>F</enableoptimisticlocking>
+  <enablesystemnotes>T</enablesystemnotes>
+  <hierarchical>F</hierarchical>
+  <icon></icon>
+  <iconbuiltin>T</iconbuiltin>
+  <includename>F</includename>
+  <isinactive>F</isinactive>
+  <isordermatrix>F</isordermatrix>
+  <recordname>PD | PETR | Configuração das Validações</recordname>
+  <showcreatedate>T</showcreatedate>
+  <showcreatedateonlist>F</showcreatedateonlist>
+  <showid>F</showid>
+  <showlastmodified>T</showlastmodified>
+  <showlastmodifiedonlist>F</showlastmodifiedonlist>
+  <shownotes>T</shownotes>
+  <showowner>F</showowner>
+  <customrecordcustomfields>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_enable_dup_cnpj_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o sistema valida se o CNPJ/CPF informado já está cadastrado em outra entidade (Customer/Job ou Vendor) antes de salvar.</help>
+      <label>Validar Duplicidade (CNPJ/CPF Nacional)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_enable_dup_intl_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o sistema valida se o Registro Fiscal Internacional informado já está cadastrado em outra entidade antes de salvar.</help>
+      <label>Validar Duplicidade (Registro Internacional)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_enable_lookup_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, ao salvar um cadastro (criação ou edição) com CNPJ válido, o sistema consulta automaticamente a BrasilAPI para enriquecer os dados cadastrais.</help>
+      <label>Consulta Automática de CNPJ na Receita</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_enable_cnpj_btn_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, exibe o botão "Consultar CNPJ" no formulário de Customer/Job/Vendor, permitindo a consulta manual à Receita a qualquer momento.</help>
+      <label>Botão "Consultar CNPJ"</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_trade_name_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o campo Nome Fantasia é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <label>Atualizar Nome Fantasia</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_legal_name_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o campo Razão Social é preenchido automaticamente com o retorno da Receita (BrasilAPI) — sempre reflete a Receita, mesmo substituindo um valor já preenchido.</help>
+      <label>Atualizar Razão Social</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_phone_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o campo Telefone é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <label>Atualizar Telefone</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_alt_phone_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o campo Telefone Alternativo é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <label>Atualizar Telefone Alternativo</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_fax_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o campo Fax é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <label>Atualizar Fax</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_email_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o campo E-mail é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <label>Atualizar E-mail</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_tax_regime_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o campo Regime Tributário é preenchido automaticamente a partir do retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <label>Atualizar Regime Tributário</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_address_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o endereço é preenchido automaticamente com o retorno da Receita/CEP (BrasilAPI), somente se o cadastro de endereços estiver vazio.</help>
+      <label>Atualizar Endereço</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_all_cb">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, habilita a atualização automática de todos os campos via Receita (BrasilAPI) e desabilita a seleção individual dos campos abaixo.</help>
+      <label>Atualizar Todos os Campos</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+  </customrecordcustomfields>
+</customrecordtype>

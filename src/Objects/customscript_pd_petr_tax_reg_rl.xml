@@ -1,0 +1,23 @@
+<restlet scriptid="customscript_pd_petr_tax_reg_rl">
+  <name>PD | PETR | Entity Tax Registration RL</name>
+  <scriptfile>[/SuiteScripts/product_dome/pd_entity_tax_registration/restlet/pd-petr-entity-tax-registration.rl.js]</scriptfile>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>T</notifyowner>
+  <notifyuser>F</notifyuser>
+  <isinactive>F</isinactive>
+  <description>Consulta a BrasilAPI e atualiza os dados cadastrais de Customer/Job/Vendor a partir do CNPJ, chamado pelo client script quando o registro está em modo de visualização (setValue não funciona nesse modo).</description>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_pd_petr_tax_reg_rl">
+      <allemployees>T</allemployees>
+      <allpartners>T</allpartners>
+      <allroles>T</allroles>
+      <audslctrole></audslctrole>
+      <isdeployed>T</isdeployed>
+      <loglevel>DEBUG</loglevel>
+      <postfunction>post</postfunction>
+      <status>RELEASED</status>
+      <title>PD | PETR | Entity Tax Registration RL</title>
+    </scriptdeployment>
+  </scriptdeployments>
+</restlet>
