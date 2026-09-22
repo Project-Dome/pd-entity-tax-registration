@@ -76,10 +76,24 @@ define(['N/search'], function (search) {
         return results.length ? results[0] : null;
     }
 
+    // Filtro por fórmula SQL (ex. SUBSTR/INSTR sobre um campo nativo) — os filtros crus que
+    // `run`/`first` aceitam em `options.filters` são passados direto pro N/search, que aceita
+    // misturar objetos de filtro (como este) com expressões [nome, operador, valor] no mesmo
+    // array, unidos por 'AND'/'OR'.
+    function formulaFilter(formula, operator, value) {
+        return search.createFilter({
+            name: 'formulatext',
+            formula: formula,
+            operator: operator,
+            values: value
+        });
+    }
+
     return {
         run: run,
         first: first,
         buildColumns: buildColumns,
-        mapResult: mapResult
+        mapResult: mapResult,
+        formulaFilter: formulaFilter
     };
 });

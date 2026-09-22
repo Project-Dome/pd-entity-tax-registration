@@ -8,12 +8,14 @@ define(
         'N/runtime',
         '../modules/pd-petr-constants',
         '../service/pd-petr-entity',
+        '../service/pd-petr-entity-lookup',
         '../service/pd-petr-validation-settings'
     ],
     function (
         runtime,
         constantsModule,
         entityService,
+        entityLookupService,
         validationSettingsService
     ) {
 
@@ -48,7 +50,7 @@ define(
 
         function beforeSubmit(context) {
             if (context.type === context.UserEventType.CSVIMPORT) {
-                entityService.manageCsvImport(context.newRecord);
+                entityLookupService.manageCsvImport(context.newRecord);
                 return;
             }
 

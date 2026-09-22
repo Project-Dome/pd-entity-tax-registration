@@ -9,7 +9,8 @@ define([], function () {
 
         API: {
             CNPJ_BASE_URL: 'https://brasilapi.com.br/api/cnpj/v1/',
-            CEP_BASE_URL: 'https://brasilapi.com.br/api/cep/v2/'
+            CEP_BASE_URL: 'https://brasilapi.com.br/api/cep/v2/',
+            RECEITAWS_BASE_URL: 'https://receitaws.com.br/v1/cnpj/'
         },
 
         ENTITY: {
@@ -60,6 +61,14 @@ define([], function () {
                 FIELDS: {
                     internalId: { name: 'internalid' },
                     ibgeCode: { name: 'custrecord_ftebr_city_i_ibge_code' }
+                },
+                // customrecord_ftebr_city não tem campos separados de nome/UF — ambos vêm
+                // embutidos no campo nativo "name", no formato "{Cidade} - {UF}". Fórmulas
+                // portadas de pd-pcnpj-suitesuccess-city.service.js (projeto de referência
+                // pd-p-cnpj-integration), usadas quando não há código IBGE (provedor ReceitaWS).
+                NAME_FORMULAS: {
+                    NAME: "LTRIM(RTRIM(SUBSTR({name}, 1, INSTR({name},'-') - 1)))",
+                    UF: "LTRIM(RTRIM(SUBSTR({name}, INSTR({name}, '-') + 1, 4)))"
                 }
             },
 
@@ -103,6 +112,17 @@ define([], function () {
                 updateTaxRegime: { name: 'custrecord_pd_petr_vs_upd_tax_regime_cb', isCheckbox: true },
                 updateAddress: { name: 'custrecord_pd_petr_vs_upd_address_cb', isCheckbox: true },
                 updateAll: { name: 'custrecord_pd_petr_vs_upd_all_cb', isCheckbox: true }
+            }
+        },
+
+        API_SETTINGS: {
+            TYPE: 'customrecord_pd_petr_api_settings',
+            FIELDS: {
+                internalId: { name: 'internalid' },
+                rwsEnabled: { name: 'custrecord_pd_petr_as_rws_enabled_cb', isCheckbox: true },
+                rwsToken: { name: 'custrecord_pd_petr_as_rws_token_pw' },
+                rwsRateLimit: { name: 'custrecord_pd_petr_as_rws_rate_limit_nu' },
+                brasilApiEnabled: { name: 'custrecord_pd_petr_as_bra_enabled_cb', isCheckbox: true }
             }
         },
 

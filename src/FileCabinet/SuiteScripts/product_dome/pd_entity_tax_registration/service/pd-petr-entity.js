@@ -3,33 +3,38 @@
  * @NModuleScope Public
  * @author Produto Dome - Mario Augusto Braga Costa
  */
+/*
+ * Este arquivo é importado pelo Client Script, então NÃO pode depender (nem
+ * transitivamente) de módulos que só existem no servidor — o carregamento AMD é eager e
+ * quebraria no navegador antes de qualquer função rodar. Por isso tudo que usa
+ * pd-petr-cnpj-lookup (que puxa N/cache via pd-petr-rate-limiter) mora em
+ * pd-petr-entity-lookup.js, importado só pelo RESTlet e pelo User Event.
+ */
 define(
     [
-        'N/record',
         'N/error',
         'N/https',
         'N/url',
         'N/ui/dialog',
+        'N/ui/message',
         '../modules/pd-petr-constants',
         './pd-petr-script-parameters',
         './pd-petr-vendor',
         './pd-petr-validators',
-        './pd-petr-cnpj-api',
         './pd-petr-mapper',
         './pd-petr-validation-settings',
         '../util/pd-petr-search-data'
     ],
     function (
-        record,
         error,
         https,
         url,
         dialog,
+        message,
         constantsModule,
         scriptParametersService,
         vendorService,
         validatorsService,
-        cnpjApiService,
         mapperService,
         validationSettingsService,
         searchDataUtil
@@ -48,6 +53,21 @@ define(
         var MISSING_COUNTRY_MESSAGE = 'Por favor, preencha o campo País primeiro.';
 
         var MISSING_CNPJ_MESSAGE = 'Por favor, preencha o campo CNPJ primeiro.';
+
+        // Feedback visual durante a chamada síncrona ao RESTlet — sem isso a tela fica travada
+        // sem nenhum indicativo até a resposta voltar (button, autofetch no save e modo view).
+        function showLoadingMessage() {
+            var loadingMessage = message.create({
+                title: 'Aguarde!',
+                message: 'Consultando dados do CNPJ...',
+                type: message.Type.INFORMATION
+            });
+            // duration é rede de segurança: o hide() explícito (try/finally nos call sites)
+            // já cobre o fluxo normal — isso só garante que o popup não fique preso pra sempre
+            // em algum cenário não previsto.
+            loadingMessage.show({ duration: 10000 });
+            return loadingMessage;
+        }
 
         function isNullOrEmpty(value) {
             return value === null || value === undefined || value === '';
@@ -314,56 +334,105 @@ define(
                 return;
             }
 
-            var response;
+            var loadingMessage = showLoadingMessage();
 
+            // O hide() só roda no finally, depois de TODO o tratamento do resultado (dialog de
+            // erro ou setFields) — não logo após a chamada HTTP retornar. Quando a resposta é
+            // rápida, esconder o popup ali (antes de checar sucesso/erro e preencher os campos)
+            // fazia show()+hide() acontecerem quase no mesmo instante, sem o navegador ter tempo
+            // de pintar a mensagem na tela: parecia que o popup "não aparecia".
             try {
-                response = cnpjApiService.get(value);
+                var result = fetchCompanyDataViaRestlet(value);
+
+                if (!result.success) {
+                    dialog.alert({
+                        title: 'Erro ao consultar CNPJ',
+                        message: (result.error || 'Não foi possível recuperar os dados da empresa.') + ' ' + SUPPORT_CONTACT_MESSAGE
+                    });
+                    return;
+                }
+
+                var validation = validatorsService.validateApiResponse(result.data);
+                if (!validation.valid) {
+                    dialog.alert({ title: validation.title, message: validation.message });
+                }
+
+                var mapResult = mapperService.setFields(currentRecord, result.data);
+                lastFetchedDigits = digitsOnly(value);
+
+                // Aviso específico do preenchimento (ex.: Cidade não identificada
+                // automaticamente) — distinto do aviso de qualidade dos dados acima.
+                if (mapResult && mapResult.warning) {
+                    dialog.alert({ title: mapResult.warning.title, message: mapResult.warning.message });
+                }
+            } finally {
+                loadingMessage.hide();
+            }
+        }
+
+        // Chamada ao RESTlet só de consulta (sem carregar/salvar nenhum record) — usada no
+        // fluxo de create/edit (botão e autofetch do save). O preenchimento de campos continua
+        // acontecendo aqui, no cliente, via mapperService.setFields — só a chamada HTTP externa
+        // (com o token do ReceitaWS) é que sai do navegador. Diferente de fetchCNPJViaRestlet
+        // (abaixo), que é exclusiva do modo view: lá o record já tem id e setValue não funciona
+        // em view, então quem carrega/preenche/salva é o próprio RESTlet.
+        // Nunca lança exceção — inclusive url.resolveScript entra no try. Antes ele ficava
+        // fora, e uma exceção ali (ex.: deployment sem acesso pro papel do usuário) subia sem
+        // ser capturada em lugar nenhum, e o chamador (fetchCNPJ) nunca chegava no
+        // loadingMessage.hide() — popup travado, silenciosamente, sem erro nenhum pro usuário.
+        function fetchCompanyDataViaRestlet(cnpj) {
+            try {
+                var restletUrl = url.resolveScript({
+                    scriptId: constantsModule.SCRIPTS.RESTLET.SCRIPT_ID,
+                    deploymentId: constantsModule.SCRIPTS.RESTLET.DEPLOY_ID,
+                    returnExternalUrl: false
+                });
+
+                var response = https.post({
+                    url: restletUrl,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cnpj: cnpj })
+                });
+
+                if (response.code !== 200) {
+                    log.error({
+                        title: 'pd-petr-entity.fetchCompanyDataViaRestlet',
+                        details: { code: response.code, body: response.body }
+                    });
+
+                    return {
+                        success: false,
+                        error: 'O serviço de consulta respondeu com o código ' + response.code + '. ' + SUPPORT_CONTACT_MESSAGE
+                    };
+                }
+
+                // O corpo só é JSON quando o RESTlet respondeu de fato; um HTML de erro/login
+                // chegaria aqui e quebraria o parse — try aninhado só pra manter a mensagem
+                // específica desse caso, distinta da falha de comunicação do catch de fora.
+                try {
+                    return JSON.parse(response.body);
+                } catch (parseError) {
+                    log.error({
+                        title: 'pd-petr-entity.fetchCompanyDataViaRestlet',
+                        details: { message: 'Resposta não é JSON', body: response.body }
+                    });
+
+                    return {
+                        success: false,
+                        error: 'O serviço de consulta devolveu uma resposta inesperada. ' + SUPPORT_CONTACT_MESSAGE
+                    };
+                }
             } catch (e) {
                 log.error({
-                    title: 'pd-petr-entity.fetchCNPJ',
+                    title: 'pd-petr-entity.fetchCompanyDataViaRestlet',
                     details: { stack: e.stack, message: e.message }
                 });
 
-                dialog.alert({
-                    title: 'Erro ao consultar CNPJ',
-                    message: 'Não foi possível se comunicar com o serviço de consulta de CNPJ. ' + SUPPORT_CONTACT_MESSAGE
-                });
-                return;
+                return {
+                    success: false,
+                    error: 'Não foi possível se comunicar com o serviço de consulta. ' + SUPPORT_CONTACT_MESSAGE
+                };
             }
-
-            if (response.code !== 200) {
-                dialog.alert({
-                    title: 'Erro ao consultar CNPJ',
-                    message: 'Não foi possível recuperar os dados da empresa. Verifique se o CNPJ está correto e tente novamente. '
-                        + SUPPORT_CONTACT_MESSAGE
-                });
-                return;
-            }
-
-            var body;
-
-            try {
-                body = JSON.parse(response.body);
-            } catch (e) {
-                log.error({
-                    title: 'pd-petr-entity.fetchCNPJ',
-                    details: { message: 'Resposta não é JSON', body: response.body }
-                });
-
-                dialog.alert({
-                    title: 'Erro ao consultar CNPJ',
-                    message: 'O serviço de consulta devolveu uma resposta inesperada. ' + SUPPORT_CONTACT_MESSAGE
-                });
-                return;
-            }
-
-            var validation = validatorsService.validateApiResponse(body);
-            if (!validation.valid) {
-                dialog.alert({ title: validation.title, message: validation.message });
-            }
-
-            mapperService.setFields(currentRecord, body);
-            lastFetchedDigits = digitsOnly(value);
         }
 
         function fetchCNPJViaRestlet(currentRecord) {
@@ -380,16 +449,20 @@ define(
                 }
             });
 
-            var restletUrl = url.resolveScript({
-                scriptId: constantsModule.SCRIPTS.RESTLET.SCRIPT_ID,
-                deploymentId: constantsModule.SCRIPTS.RESTLET.DEPLOY_ID,
-                returnExternalUrl: false
-            });
+            var loadingMessage = showLoadingMessage();
 
-            var response;
-
+            // Mesmo motivo do fetchCNPJ: o hide() só roda no finally, depois de TODO o
+            // tratamento da resposta (erro ou reload) — não logo após o https.post retornar.
+            // Escondido cedo demais, o popup não chegava a ser pintado na tela numa resposta
+            // rápida (show()+hide() quase no mesmo instante).
             try {
-                response = https.post({
+                var restletUrl = url.resolveScript({
+                    scriptId: constantsModule.SCRIPTS.RESTLET.SCRIPT_ID,
+                    deploymentId: constantsModule.SCRIPTS.RESTLET.DEPLOY_ID,
+                    returnExternalUrl: false
+                });
+
+                var response = https.post({
                     url: restletUrl,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -397,6 +470,54 @@ define(
                         id: currentRecord.id
                     })
                 });
+
+                var isSuccessfulResponse = response.code === 200;
+
+                if (!isSuccessfulResponse) {
+                    log.error({
+                        title: 'pd-petr-entity.fetchCNPJViaRestlet',
+                        details: { code: response.code, body: response.body }
+                    });
+
+                    dialog.alert({
+                        title: 'Erro ao consultar CNPJ',
+                        message: 'O serviço de consulta respondeu com o código ' + response.code + '. ' + SUPPORT_CONTACT_MESSAGE
+                    });
+                    return;
+                }
+
+                var result;
+
+                // O corpo só é JSON quando o RESTlet respondeu de fato; um HTML de erro/login
+                // chegaria aqui e quebraria o parse sem tratamento.
+                try {
+                    result = JSON.parse(response.body);
+                } catch (e) {
+                    log.error({
+                        title: 'pd-petr-entity.fetchCNPJViaRestlet',
+                        details: { message: 'Resposta não é JSON', body: response.body }
+                    });
+
+                    dialog.alert({
+                        title: 'Erro ao consultar CNPJ',
+                        message: 'O serviço de consulta devolveu uma resposta inesperada. ' + SUPPORT_CONTACT_MESSAGE
+                    });
+                    return;
+                }
+
+                if (!result.success) {
+                    dialog.alert({
+                        title: 'Erro ao consultar CNPJ',
+                        message: (result.error || 'Não foi possível atualizar os dados da empresa.') + ' ' + SUPPORT_CONTACT_MESSAGE
+                    });
+                    return;
+                }
+
+                if (result.warning) {
+                    dialog.alert({ title: result.warning.title, message: result.warning.message });
+                }
+
+                window.location.reload();
             } catch (e) {
                 log.error({
                     title: 'pd-petr-entity.fetchCNPJViaRestlet',
@@ -407,128 +528,9 @@ define(
                     title: 'Erro ao consultar CNPJ',
                     message: 'Não foi possível se comunicar com o serviço de consulta. ' + SUPPORT_CONTACT_MESSAGE
                 });
-                return;
+            } finally {
+                loadingMessage.hide();
             }
-
-            var isSuccessfulResponse = response.code === 200;
-
-            if (!isSuccessfulResponse) {
-                log.error({
-                    title: 'pd-petr-entity.fetchCNPJViaRestlet',
-                    details: { code: response.code, body: response.body }
-                });
-
-                dialog.alert({
-                    title: 'Erro ao consultar CNPJ',
-                    message: 'O serviço de consulta respondeu com o código ' + response.code + '. ' + SUPPORT_CONTACT_MESSAGE
-                });
-                return;
-            }
-
-            var result;
-
-            // O corpo só é JSON quando o RESTlet respondeu de fato; um HTML de erro/login
-            // chegaria aqui e quebraria o parse sem tratamento.
-            try {
-                result = JSON.parse(response.body);
-            } catch (e) {
-                log.error({
-                    title: 'pd-petr-entity.fetchCNPJViaRestlet',
-                    details: { message: 'Resposta não é JSON', body: response.body }
-                });
-
-                dialog.alert({
-                    title: 'Erro ao consultar CNPJ',
-                    message: 'O serviço de consulta devolveu uma resposta inesperada. ' + SUPPORT_CONTACT_MESSAGE
-                });
-                return;
-            }
-
-            if (!result.success) {
-                dialog.alert({
-                    title: 'Erro ao consultar CNPJ',
-                    message: (result.error || 'Não foi possível atualizar os dados da empresa.') + ' ' + SUPPORT_CONTACT_MESSAGE
-                });
-                return;
-            }
-
-            if (result.warning) {
-                dialog.alert({ title: result.warning.title, message: result.warning.message });
-            }
-
-            window.location.reload();
-        }
-
-        function fetchCNPJForRecord(recordType, id) {
-            var entityRecord = record.load({ type: recordType, id: id, isDynamic: true });
-
-            var country = entityRecord.getValue({ fieldId: FIELDS.country.name });
-            if (isNullOrEmpty(country)) {
-                return { success: false, error: MISSING_COUNTRY_MESSAGE };
-            }
-
-            var cnpj = entityRecord.getValue({ fieldId: FIELDS.cnpj.name });
-            if (!cnpj) {
-                return { success: false, error: MISSING_CNPJ_MESSAGE };
-            }
-
-            var formatError = validateFederalRegistrationFormat(cnpj);
-            if (formatError) {
-                return { success: false, error: formatError.message };
-            }
-
-            if (!validationSettingsService.get()) {
-                return { success: false, error: MISSING_SETTINGS_MESSAGE };
-            }
-
-            var response;
-
-            try {
-                response = cnpjApiService.get(cnpj);
-            } catch (e) {
-                log.error({
-                    title: 'pd-petr-entity.fetchCNPJForRecord',
-                    details: { stack: e.stack, message: e.message }
-                });
-
-                return {
-                    success: false,
-                    error: 'Não foi possível se comunicar com o serviço de consulta de CNPJ.'
-                };
-            }
-
-            if (response.code !== 200) {
-                return {
-                    success: false,
-                    error: 'Não foi possível recuperar os dados da empresa. Verifique se o CNPJ está correto e tente novamente.'
-                };
-            }
-
-            var body;
-
-            try {
-                body = JSON.parse(response.body);
-            } catch (e) {
-                log.error({
-                    title: 'pd-petr-entity.fetchCNPJForRecord',
-                    details: { message: 'Resposta não é JSON', body: response.body }
-                });
-
-                return {
-                    success: false,
-                    error: 'O serviço de consulta devolveu uma resposta inesperada.'
-                };
-            }
-
-            var validation = validatorsService.validateApiResponse(body);
-
-            mapperService.setFields(entityRecord, body);
-            entityRecord.save();
-
-            return {
-                success: true,
-                warning: validation.valid ? null : { title: validation.title, message: validation.message }
-            };
         }
 
         function manageBeforeSubmitServer(context) {
@@ -560,73 +562,13 @@ define(
             }
         }
 
-        function manageCsvImport(newRecord) {
-            // CSV Import entra como consulta automática (não é disparo manual pelo botão)
-            var settings = validationSettingsService.get();
-
-            if (!settings) {
-                log.error({
-                    title: 'pd-petr-entity.manageCsvImport',
-                    details: MISSING_SETTINGS_MESSAGE
-                });
-                return;
-            }
-
-            if (!settings.enableAutoLookup) return;
-
-            var country = newRecord.getValue({ fieldId: FIELDS.country.name });
-            if (!isBrazil(country)) return;
-
-            var cnpj = newRecord.getValue({ fieldId: FIELDS.cnpj.name });
-            if (!cnpj) return;
-
-            var formatError = validateFederalRegistrationFormat(cnpj);
-            if (formatError || digitsOnly(cnpj).length !== 14) {
-                log.debug('pd-petr-entity.manageCsvImport', 'CNPJ "' + cnpj + '" não é válido — pulando enriquecimento.');
-                return;
-            }
-
-            // O enriquecimento não pode abortar a importação: uma exceção aqui sobe até o
-            // beforeSubmit do User Event e cancela o submit, impedindo a criação do registro.
-            // Timeout, falha de conexão e estouro de governança lançam exceção; status HTTP
-            // (429/404/500) não lança e é tratado pelo response.code abaixo.
-            try {
-
-                var response = cnpjApiService.get(cnpj);
-
-                if (response.code !== 200) {
-                    log.debug('pd-petr-entity.manageCsvImport', 'BrasilAPI retornou status ' + response.code + ' — pulando.');
-                    return;
-                }
-
-                var body = JSON.parse(response.body);
-                mapperService.setFields(newRecord, body);
-
-            } catch (e) {
-
-                log.error({
-                    title: 'pd-petr-entity.manageCsvImport',
-                    details: {
-                        cnpj: cnpj,
-                        message: 'Enriquecimento não executado — registro importado sem os dados da BrasilAPI.',
-                        errorName: e.name,
-                        errorMessage: e.message,
-                        stack: e.stack
-                    }
-                });
-
-            }
-        }
-
         return {
             managePageInit: managePageInit,
             manageFieldChanged: manageFieldChanged,
             validateField: validateField,
             manageSaveRecord: manageSaveRecord,
             fetchCNPJ: fetchCNPJ,
-            fetchCNPJForRecord: fetchCNPJForRecord,
-            manageBeforeSubmitServer: manageBeforeSubmitServer,
-            manageCsvImport: manageCsvImport
+            manageBeforeSubmitServer: manageBeforeSubmitServer
         };
     }
 );

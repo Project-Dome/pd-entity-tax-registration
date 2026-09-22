@@ -5,15 +5,23 @@
  */
 define(
     [
-        '../service/pd-petr-entity'
+        '../service/pd-petr-entity-lookup'
     ],
     function (
-        entityService
+        entityLookupService
     ) {
 
+        // Duas ações, conforme o corpo da requisição: por id (modo view — carrega, preenche e
+        // salva o record no servidor) ou por CNPJ (modo create/edit — só consulta, o cliente
+        // preenche os campos). Ver client/pd-petr-entity-tax-registration.cl.js e
+        // service/pd-petr-entity.js (fetchCNPJViaRestlet vs. fetchCompanyDataViaRestlet).
         function post(requestBody) {
             try {
-                return entityService.fetchCNPJForRecord(requestBody.recordType, requestBody.id);
+                if (requestBody.id) {
+                    return entityLookupService.fetchCNPJForRecord(requestBody.recordType, requestBody.id);
+                }
+
+                return entityLookupService.fetchCompanyDataForCnpj(requestBody.cnpj);
             } catch (e) {
                 log.error('pd-petr-entity-tax-registration.rl.post', e);
                 return { success: false, error: e.message };

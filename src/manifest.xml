@@ -7,6 +7,14 @@
       <feature required="true">CRM</feature>
       <feature required="true">ACCOUNTING</feature>
       <feature required="true">CREATESUITEBUNDLES</feature>
+      <feature required="true">CUSTOMRECORDS</feature>
+      <!--
+      SUBSCRIPTIONBILLING declarado como optional (não required) — o validador exige a
+      dependência para qualquer customrecordtype nesta conta, mas não há confirmação de que a
+      conta 11953512 tenha esse módulo contratado/habilitado. Ver "Pendências antes do deploy
+      em produção" em docs/specs/multi-provider-cnpj-lookup.md.
+      -->
+      <feature required="false">SUBSCRIPTIONBILLING</feature>
     </features>
     <!--
     Dependência desativada junto com o deployment de Job do User Event

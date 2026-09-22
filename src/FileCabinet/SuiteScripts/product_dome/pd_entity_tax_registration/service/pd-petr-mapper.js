@@ -27,7 +27,7 @@ define(
                     title: 'pd-petr-mapper.setFields',
                     details: 'Não há registro de Configurações de Validação ativo — enriquecimento não executado.'
                 });
-                return false;
+                return { success: false };
             }
 
             var wasLegalNameEmpty = fieldExists(currentRecord, FIELDS.companyName.name)
@@ -43,10 +43,10 @@ define(
                 currentRecord.setValue({ fieldId: FIELDS.tradeName.name, value: json.razao_social });
             }
 
-            if (settings.updatePhone    && json.ddd_telefone_1) setIfEmpty(currentRecord, FIELDS.phone.name,    formatPhone(json.ddd_telefone_1));
+            if (settings.updatePhone && json.ddd_telefone_1) setIfEmpty(currentRecord, FIELDS.phone.name, formatPhone(json.ddd_telefone_1));
             if (settings.updateAltPhone && json.ddd_telefone_2) setIfEmpty(currentRecord, FIELDS.altPhone.name, formatPhone(json.ddd_telefone_2));
-            if (settings.updateFax      && json.ddd_fax)        setIfEmpty(currentRecord, FIELDS.fax.name,      formatPhone(json.ddd_fax));
-            if (settings.updateEmail    && json.email)          setIfEmpty(currentRecord, FIELDS.email.name,    json.email);
+            if (settings.updateFax && json.ddd_fax) setIfEmpty(currentRecord, FIELDS.fax.name, formatPhone(json.ddd_fax));
+            if (settings.updateEmail && json.email) setIfEmpty(currentRecord, FIELDS.email.name, json.email);
 
             if (settings.updateTaxRegime) {
                 if (fieldExists(currentRecord, FIELDS.taxRegime.name)) {
@@ -68,9 +68,12 @@ define(
                 log.debug('pd-petr-mapper.setFields', json.qsa.length + ' socio(s) found in qsa — not mapped (would require a related custom record, out of scope for this product)');
             }
 
-            if (settings.updateAddress) insertAddress(currentRecord, json);
+            // insertAddress devolve um aviso (objeto {title, message}) quando não consegue
+            // completar o endereço automaticamente (ex.: Cidade não identificada) — repassado
+            // pra quem chamou setFields exibir ao usuário, em vez de ficar só no log.
+            var addressWarning = settings.updateAddress ? insertAddress(currentRecord, json) : null;
 
-            return true;
+            return { success: true, warning: addressWarning || null };
         }
 
         function insertAddress(currentRecord, json) {
@@ -98,7 +101,7 @@ define(
 
             var isDynamic = currentRecord.isDynamic;
 
-            log.debug('isDynamic', isDynamic);
+            log.debug('isDynamicTest', isDynamic);
 
             var line;
             var subrecord;
@@ -129,7 +132,11 @@ define(
                         title: 'pd-petr-mapper.insertAddress',
                         details: 'Subrecord de endereço não disponível (isDynamic=' + isDynamic + ') — endereço não inserido.'
                     });
-                    return;
+                    return {
+                        title: 'Endereço não preenchido',
+                        message: 'Os demais dados foram atualizados, mas não foi possível preencher o endereço automaticamente. '
+                            + 'Preencha manualmente na aba Endereço, se necessário.'
+                    };
                 }
 
                 if (zipDigits) {
@@ -149,18 +156,14 @@ define(
                 var uf = (cep && cep.state) ? cep.state : json.uf;
                 if (uf) subrecord.setValue({ fieldId: f.STATE, value: uf });
 
-                if (json.codigo_municipio_ibge) {
-                    var cityId = lookupCityInternalId(json.codigo_municipio_ibge);
-                    if (cityId) {
-                        subrecord.setValue({ fieldId: f.CITY, value: cityId });
-                    } else {
-                        log.debug('pd-petr-mapper.insertAddress', 'Could not resolve city for IBGE code ' + json.codigo_municipio_ibge + ' — leaving City blank.');
-                    }
-                } else {
-                    log.debug('pd-petr-mapper.insertAddress', 'No codigo_municipio_ibge in response — leaving City blank.');
+                var cityId = resolveCityInternalId(json, uf, cep);
+                if (cityId) {
+                    subrecord.setValue({ fieldId: f.CITY, value: cityId });
                 }
 
                 if (isDynamic) currentRecord.commitLine({ sublistId: sublistId });
+
+                return cityId ? null : buildCityNotResolvedWarning();
 
             } catch (e) {
 
@@ -169,7 +172,17 @@ define(
                     details: { isDynamic: isDynamic, stack: e.stack, message: e.message }
                 });
 
+                return buildCityNotResolvedWarning();
+
             }
+        }
+
+        function buildCityNotResolvedWarning() {
+            return {
+                title: 'Endereço incompleto',
+                message: 'Os demais dados foram atualizados, mas não foi possível identificar automaticamente a Cidade do endereço. '
+                    + 'Preencha o campo manualmente na aba Endereço.'
+            };
         }
 
         function addressbookHasZip(currentRecord, sublistId, subrecordId, zipFieldId, zipDigits) {
@@ -223,6 +236,11 @@ define(
                     filters: [[constantsModule.ENTITY.CITY_LOOKUP.FIELDS.ibgeCode.name, 'equalto', Number(ibgeCode)]]
                 });
 
+                log.debug({
+                    title: 'result',
+                    details: result
+                })
+
                 if (!result) {
                     log.debug('pd-petr-mapper.lookupCityInternalId', 'No ' + constantsModule.ENTITY.CITY_LOOKUP.RECORD_TYPE + ' match for IBGE code ' + ibgeCode);
                     return null;
@@ -232,6 +250,80 @@ define(
                 log.error('pd-petr-mapper.lookupCityInternalId', e);
                 return null;
             }
+        }
+
+        // Prioriza o código IBGE, na ordem: (1) o do próprio provedor de CNPJ (só a BrasilAPI
+        // retorna); (2) o da consulta de CEP (pd-petr-cep-api.js, já chamada em insertAddress
+        // para completar rua/bairro — ela também devolve `ibge.city`, reaproveitado aqui em vez
+        // de fazer nova chamada). Sem nenhum dos dois — típico quando o provedor foi o ReceitaWS
+        // e a consulta de CEP falhou/não rodou — tenta por município + UF (busca por fórmula,
+        // ver lookupCityInternalIdByNameAndUf).
+        function resolveCityInternalId(json, uf, cep) {
+            var ibgeCode = json.codigo_municipio_ibge || (cep && cep.ibge && cep.ibge.city);
+
+            if (ibgeCode) {
+                var cityIdByIbge = lookupCityInternalId(ibgeCode);
+                if (cityIdByIbge) return cityIdByIbge;
+                log.debug('pd-petr-mapper.resolveCityInternalId', 'Could not resolve city for IBGE code ' + ibgeCode + ' — trying municipio+uf.');
+            }
+
+            if (json.municipio && uf) {
+                return lookupCityInternalIdByNameAndUf(json.municipio, uf);
+            }
+
+            log.debug('pd-petr-mapper.resolveCityInternalId', 'No codigo_municipio_ibge nor municipio/uf in response — leaving City blank.');
+            return null;
+        }
+
+        // Busca por município + UF, portada de pd-pcnpj-suitesuccess-city.service.js (projeto
+        // de referência pd-p-cnpj-integration): filtro amplo por UF + primeira letra do nome
+        // (via fórmula SQL, ver NAME_FORMULAS em pd-petr-constants.js), depois comparação exata
+        // em JS normalizando acentos/caixa dos dois lados — a busca nativa "startswith" no
+        // formulatext não é acento-insensível, então a 1ª letra usada no filtro já é a
+        // normalizada (mesmo comportamento aceito na implementação de referência).
+        function lookupCityInternalIdByNameAndUf(name, uf) {
+            if (!name || !uf) return null;
+            try {
+                var formulas = constantsModule.ENTITY.CITY_LOOKUP.NAME_FORMULAS;
+                var normalizedTarget = normalizeForCompare(name);
+
+                var candidates = searchDataUtil.run({
+                    type: constantsModule.ENTITY.CITY_LOOKUP.RECORD_TYPE,
+                    fields: {
+                        internalId: constantsModule.ENTITY.CITY_LOOKUP.FIELDS.internalId,
+                        cityName: { name: 'formulatext', formula: formulas.NAME }
+                    },
+                    filters: [
+                        searchDataUtil.formulaFilter(formulas.UF, 'is', uf),
+                        'AND',
+                        searchDataUtil.formulaFilter(formulas.NAME, 'startswith', normalizedTarget.charAt(0))
+                    ]
+                });
+
+                var match = candidates.filter(function (candidate) {
+                    return normalizeForCompare(candidate.cityName) === normalizedTarget;
+                })[0];
+
+                if (!match) {
+                    log.debug('pd-petr-mapper.lookupCityInternalIdByNameAndUf', 'No ' + constantsModule.ENTITY.CITY_LOOKUP.RECORD_TYPE + ' match for "' + name + '" / ' + uf);
+                    return null;
+                }
+
+                return match.internalId;
+            } catch (e) {
+                log.error('pd-petr-mapper.lookupCityInternalIdByNameAndUf', e);
+                return null;
+            }
+        }
+
+        // Minúsculas + sem acento, só para comparação — diferente de normalize() acima, que
+        // preserva caixa porque é usada para preencher valor de campo (logradouro/bairro).
+        function normalizeForCompare(str) {
+            if (!str) return '';
+            var stripped = typeof str.normalize === 'function'
+                ? str.normalize('NFD').replace(/[^\x00-\x7F]/g, '')
+                : str;
+            return stripped.toLowerCase().trim();
         }
 
         function fieldExists(currentRecord, fieldId) {
@@ -261,7 +353,7 @@ define(
         function resolveTaxRegimeLabel(json) {
             var labels = constantsModule.ENTITY.TAX_REGIME_LOOKUP.LABELS;
 
-            if (json.opcao_pelo_mei === true)     return labels.SIMPLES;
+            if (json.opcao_pelo_mei === true) return labels.SIMPLES;
             if (json.opcao_pelo_simples === true) return labels.SIMPLES;
 
             if (json.regime_tributario && json.regime_tributario.length) {
@@ -274,7 +366,7 @@ define(
 
                 var forma = latest && latest.forma_de_tributacao;
                 if (forma === 'LUCRO PRESUMIDO') return labels.LUCRO_PRESUMIDO;
-                if (forma === 'LUCRO REAL')      return labels.LUCRO_REAL;
+                if (forma === 'LUCRO REAL') return labels.LUCRO_REAL;
 
                 log.debug('pd-petr-mapper.resolveTaxRegimeLabel', 'Unrecognized forma_de_tributacao "' + forma + '" — tax regime not mapped.');
                 return null;

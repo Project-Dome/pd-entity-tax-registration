@@ -1,0 +1,293 @@
+<!--
+Atributo `standard` calculado pela mesma regra observada em custform_pd_petr_vs.xml
+(customrecord_pd_petr_validation_settings -> STANDARDCUSTOMRECORD_PD_PETR_VALIDATION_SETTINGSFORM):
+customrecord_pd_petr_api_settings -> STANDARDCUSTOMRECORD_PD_PETR_API_SETTINGSFORM.
+Como o record é novo (ainda não existe na conta), não há form exportado para conferir o valor
+exato — CONFIRMAR com `suitecloud project:deploy dryrun` antes do deploy real.
+-->
+<entryForm scriptid="custform_pd_petr_as" standard="STANDARDCUSTOMRECORD_PD_PETR_API_SETTINGSFORM">
+  <name>PD | PETR | Configuração das APIs</name>
+  <recordType>[scriptid=customrecord_pd_petr_api_settings]</recordType>
+  <inactive>F</inactive>
+  <preferred>T</preferred>
+  <storedWithRecord>T</storedWithRecord>
+  <mainFields>
+    <fieldGroup scriptid="fieldgroup_pd_petr_as_rws">
+      <label>ReceitaWS</label>
+      <visible>T</visible>
+      <showTitle>T</showTitle>
+      <singleColumn>F</singleColumn>
+      <fields position="MIDDLE">
+        <field>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_rws_enabled_cb]</id>
+          <label>Habilitar ReceitaWS</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_rws_token_pw]</id>
+          <label>Token ReceitaWS</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_rws_rate_limit_nu]</id>
+          <label>Limite de Consultas por Minuto (ReceitaWS)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+      </fields>
+    </fieldGroup>
+    <fieldGroup scriptid="fieldgroup_pd_petr_as_bra">
+      <label>BrasilAPI</label>
+      <visible>T</visible>
+      <showTitle>T</showTitle>
+      <singleColumn>F</singleColumn>
+      <fields position="MIDDLE">
+        <field>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_bra_enabled_cb]</id>
+          <label>Habilitar BrasilAPI</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+      </fields>
+    </fieldGroup>
+    <fieldGroup scriptid="fieldgroup_pd_petr_as_sys">
+      <label>Informações do Sistema</label>
+      <visible>T</visible>
+      <showTitle>T</showTitle>
+      <singleColumn>F</singleColumn>
+      <fields position="MIDDLE">
+        <field>
+          <id>CUSTOMFORM</id>
+          <label>Formulário personalizado</label>
+          <visible>T</visible>
+          <mandatory>T</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>NAME</id>
+          <label>Nome</label>
+          <visible>T</visible>
+          <mandatory>T</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>T</quickAdd>
+        </field>
+        <field>
+          <id>RECORDID</id>
+          <label>ID</label>
+          <visible>T</visible>
+          <mandatory>T</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>OWNER</id>
+          <label>Proprietário</label>
+          <visible>T</visible>
+          <mandatory>T</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>CREATED</id>
+          <label>Data de criação</label>
+          <visible>T</visible>
+          <mandatory>T</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>LASTMODIFIED</id>
+          <label>Última alteração</label>
+          <visible>T</visible>
+          <mandatory>T</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>ISINACTIVE</id>
+          <label>Inativo</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>PARENT</id>
+          <label>Controladora</label>
+          <visible>F</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+      </fields>
+    </fieldGroup>
+    <defaultFieldGroup/>
+  </mainFields>
+  <tabs>
+    <tab>
+      <id>RECORDCUSTOM</id>
+      <label>Personalizado</label>
+      <visible>T</visible>
+      <fieldGroups>
+        <defaultFieldGroup/>
+      </fieldGroups>
+      <subItems/>
+    </tab>
+    <tab>
+      <id>RECORDNOTES</id>
+      <label>Notas</label>
+      <visible>T</visible>
+      <fieldGroups>
+        <defaultFieldGroup/>
+      </fieldGroups>
+      <subItems>
+        <subList>
+          <id>RECORDUSERNOTES</id>
+          <label>User Notes</label>
+          <visible>T</visible>
+          <neverEmpty>F</neverEmpty>
+        </subList>
+        <subList>
+          <id>RECORDSYSTEMNOTES</id>
+          <label>System Notes</label>
+          <visible>T</visible>
+          <neverEmpty>F</neverEmpty>
+        </subList>
+      </subItems>
+    </tab>
+    <tab>
+      <id>RECORDMEDIA</id>
+      <label>Arquivos</label>
+      <visible>T</visible>
+      <fieldGroups>
+        <defaultFieldGroup/>
+      </fieldGroups>
+      <subItems>
+        <subList>
+          <id>RECORDMEDIAITEM</id>
+          <label>Files</label>
+          <visible>T</visible>
+          <neverEmpty>F</neverEmpty>
+        </subList>
+      </subItems>
+    </tab>
+    <tab>
+      <id>RECORDTRANSLATION</id>
+      <label>Tradução</label>
+      <visible>T</visible>
+      <fieldGroups>
+        <defaultFieldGroup/>
+      </fieldGroups>
+      <subItems>
+        <subList>
+          <id>RECORDTRANSLATIONS</id>
+          <label>Translation</label>
+          <visible>T</visible>
+          <neverEmpty>F</neverEmpty>
+        </subList>
+      </subItems>
+    </tab>
+    <tab>
+      <id>RECORDWORKFLOW</id>
+      <label>Fluxo de trabalho</label>
+      <visible>T</visible>
+      <fieldGroups>
+        <defaultFieldGroup/>
+      </fieldGroups>
+      <subItems>
+        <subList>
+          <id>RECORDACTIVEWORKFLOWS</id>
+          <label>Active Workflows</label>
+          <visible>T</visible>
+          <neverEmpty>F</neverEmpty>
+        </subList>
+        <subList>
+          <id>RECORDWORKFLOWHISTORY</id>
+          <label>Workflow History</label>
+          <visible>T</visible>
+          <neverEmpty>F</neverEmpty>
+        </subList>
+      </subItems>
+    </tab>
+  </tabs>
+  <actionbar>
+    <menu>
+      <menuitem>
+        <id>MAKECOPY</id>
+        <label>Criar cópia</label>
+        <visible>T</visible>
+      </menuitem>
+      <menuitem>
+        <id>DELETE</id>
+        <label>Excluir</label>
+        <visible>T</visible>
+      </menuitem>
+      <menuitem>
+        <id>PRINT</id>
+        <label>Imprimir</label>
+        <visible>T</visible>
+      </menuitem>
+      <menuitem>
+        <id>NEW</id>
+        <label>Novo</label>
+        <visible>T</visible>
+      </menuitem>
+      <menuitem>
+        <id>SUBMITAS</id>
+        <label>Salvar como</label>
+        <visible>T</visible>
+      </menuitem>
+      <menuitem>
+        <id>SUBMITCOPY</id>
+        <label>Salvar e copiar</label>
+        <visible>T</visible>
+      </menuitem>
+      <menuitem>
+        <id>SUBMITNEW</id>
+        <label>Salvar e novo</label>
+        <visible>T</visible>
+      </menuitem>
+      <menuitem>
+        <id>SUBMITNEXT</id>
+        <label>Salvar e próximo</label>
+        <visible>T</visible>
+      </menuitem>
+    </menu>
+  </actionbar>
+  <editingInList>T</editingInList>
+</entryForm>

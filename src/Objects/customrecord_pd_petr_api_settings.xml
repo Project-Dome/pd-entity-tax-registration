@@ -1,0 +1,70 @@
+<customrecordtype scriptid="customrecord_pd_petr_api_settings">
+  <accesstype>CUSTRECORDENTRYPERM</accesstype>
+  <allowattachments>T</allowattachments>
+  <allowinlinedeleting>T</allowinlinedeleting>
+  <allowinlinedetaching>T</allowinlinedetaching>
+  <allowinlineediting>T</allowinlineediting>
+  <allowmobileaccess>F</allowmobileaccess>
+  <allowquickadd>T</allowquickadd>
+  <allowquicksearch>T</allowquicksearch>
+  <allowuiaccess>T</allowuiaccess>
+  <description>Registro único de configuração dos provedores de consulta de CNPJ (ReceitaWS e BrasilAPI) do módulo PD | PETR (Entity Tax Registration) — habilitação, token e limite de consultas por minuto de cada provedor.</description>
+  <enabledynamicgrid>F</enabledynamicgrid>
+  <enablekeywords>T</enablekeywords>
+  <enablemailmerge>F</enablemailmerge>
+  <enablenametranslation>F</enablenametranslation>
+  <enablenumbering>F</enablenumbering>
+  <enableoptimisticlocking>F</enableoptimisticlocking>
+  <enablesystemnotes>T</enablesystemnotes>
+  <hierarchical>F</hierarchical>
+  <icon></icon>
+  <iconbuiltin>T</iconbuiltin>
+  <includename>F</includename>
+  <isinactive>F</isinactive>
+  <isordermatrix>F</isordermatrix>
+  <recordname>PD | PETR | Configuração das APIs</recordname>
+  <showcreatedate>T</showcreatedate>
+  <showcreatedateonlist>F</showcreatedateonlist>
+  <showid>F</showid>
+  <showlastmodified>T</showlastmodified>
+  <showlastmodifiedonlist>F</showlastmodifiedonlist>
+  <shownotes>T</shownotes>
+  <showowner>F</showowner>
+  <customrecordcustomfields>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_rws_enabled_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>T</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o ReceitaWS é consultado como provedor primário de dados de CNPJ. Quando desmarcado, o ReceitaWS é ignorado e a consulta vai direto para a BrasilAPI (se habilitada).</help>
+      <label>Habilitar ReceitaWS</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_rws_token_pw">
+      <accesslevel>2</accesslevel>
+      <fieldtype>PASSWORD</fieldtype>
+      <help>Opcional. A consulta ao ReceitaWS funciona sem token, usando a API Pública gratuita (limitada a poucas consultas por minuto — ver campo "Limite de Consultas por Minuto"). Preencha este campo somente se houver um plano Comercial contratado junto ao ReceitaWS (maior limite de consultas). Nesse caso, ajuste também o limite de consultas por minuto conforme o plano contratado.</help>
+      <label>Token ReceitaWS</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_rws_rate_limit_nu">
+      <accesslevel>2</accesslevel>
+      <defaultvalue>3</defaultvalue>
+      <fieldtype>INTEGER</fieldtype>
+      <help>Quantidade máxima de consultas ao ReceitaWS permitidas por minuto. Padrão 3, o limite da API Pública gratuita do ReceitaWS (sem token — ver campo "Token ReceitaWS"). Se houver um plano Comercial contratado (até 2.000 consultas/minuto), aumente este valor de acordo — caso contrário, o sistema segue limitando a 3/minuto mesmo com um plano pago. Ao atingir o limite, as consultas passam a usar a BrasilAPI (se habilitada) até a janela de 1 minuto resetar.</help>
+      <label>Limite de Consultas por Minuto (ReceitaWS)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_bra_enabled_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>T</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, a BrasilAPI é consultada como provedor de fallback, caso o ReceitaWS esteja desabilitado, sem cota disponível, ou tenha falhado.</help>
+      <label>Habilitar BrasilAPI</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+  </customrecordcustomfields>
+</customrecordtype>
