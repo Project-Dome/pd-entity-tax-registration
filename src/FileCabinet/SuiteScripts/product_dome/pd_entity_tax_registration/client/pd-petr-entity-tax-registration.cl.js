@@ -4,6 +4,11 @@
  * @NModuleScope Public
  * @author Produto Dome - Mario Augusto Braga Costa
  */
+/*
+ * O modo do formulário é lido no clique do botão (URL + id do record), e não no pageInit:
+ * context.mode do pageInit nunca vale "view" (só create/copy/edit), e o pageInit sequer roda
+ * em modo View.
+ */
 define(
     [
         'N/currentRecord',
@@ -30,9 +35,6 @@ define(
             return entityService.manageSaveRecord(context);
         }
 
-        // context.mode do pageInit nunca vale 'view' (só 'create'/'copy'/'edit'), e pageInit
-        // sequer roda em modo View — por isso o modo é lido aqui, no clique do botão, a partir
-        // da URL e do id do record, em vez de depender do valor capturado no pageInit.
         function getRecordMode(rec) {
             if (!rec.id) return 'create';
 

@@ -2,6 +2,36 @@
 
 Todas as mudanças relevantes do módulo são registradas aqui, por versão e data. Formato inspirado em [Keep a Changelog](https://keepachangelog.com/), versionamento [semver](https://semver.org/) (`MAJOR.MINOR.PATCH`).
 
+## [2.0.0] - 2026-10-07
+
+### Adicionado
+- ReceitaWS como provedor primário de consulta de CNPJ, com limite de consultas por minuto controlado em `N/cache` e fallback para outro provedor quando falha ou estoura o limite (`pd-petr-cnpj-lookup.js`, `pd-petr-receitaws-api.js`, `pd-petr-receitaws-adapter.js`, `util/pd-petr-rate-limiter.js`).
+- Novo custom record `customrecord_pd_petr_api_settings` (`PD | PETR | Configuração das APIs`) + entry form `custform_pd_petr_as`: habilitação, token e limite de consultas de cada provedor (`pd-petr-api-settings.js`).
+- Hub do Desenvolvedor como provedor de fallback de CNPJ (`v2/cnpj`), com token obrigatório — campos `custrecord_pd_petr_as_hub_enabled_cb` e `custrecord_pd_petr_as_hub_token_ds` (`pd-petr-hub-api.js`, `pd-petr-hub-adapter.js`).
+- Inscrição Estadual via Hub (`ie=1`, na mesma consulta de CNPJ, sem créditos adicionais), gravada em `custentity_brl_entity_t_state_tx_reg` quando vazio; habilitada pela flag `custrecord_pd_petr_vs_hub_state_reg_cb` ("Consultar Inscrição Estadual (Hub)") (`pd-petr-hub-adapter.js`, `resolveStateRegistration`; `pd-petr-mapper.js`).
+- Consulta de CPF pela Hub (`v2/cpf`), habilitada pela flag `custrecord_pd_petr_vs_hub_cpf_lookup_cb` ("Consultar CPF (Hub)"): preenche `firstname` e avisa quando a situação não é `REGULAR`; CPF passa pelo mesmo botão, consulta automática no save e CSV Import (`pd-petr-cnpj-lookup.js`, `getPersonData`; `pd-petr-mapper.js`, `setPersonFields`; `pd-petr-validators.js`).
+- Botão passa a se chamar "Consultar CPF/CNPJ" quando a consulta de CPF está habilitada (`pd-petr-entity-tax-registration.ue.js`, `BUTTON.LABEL_WITH_CPF`).
+- Novo entity field `custentity_pd_petr_birth_date_dt` ("Data de Nascimento", Customer/Vendor): usado na consulta do CPF fora da base da Hub e preenchido automaticamente quando a Hub devolve a data.
+- Fluxo de CPF fora da base da Hub: `last_update=2` (grátis) decide entre `v2/cpf` só com o CPF ou com a data de nascimento do cadastro; sem data, busca no `v2/nome_cpf` apenas com a nova flag `custrecord_pd_petr_vs_hub_auto_birth_cb` ("Busca Automática de Data de Nascimento (Hub)") marcada, senão pede a data ao usuário (`pd-petr-cnpj-lookup.js`, reason `BIRTH_DATE_REQUIRED`).
+- Aviso de cobrança adicional ("Estou ciente"/"Cancelar") ao marcar a busca automática, que só fica disponível com "Consultar CPF (Hub)" marcado; ciência registrada em `custrecord_pd_petr_vs_hub_ack_at_dh`/`custrecord_pd_petr_vs_hub_ack_by_ls` pelo novo User Event `customscript_pd_petr_vs_ue` (`pd-petr-validation-settings.js`, `manageFieldChanged`/`manageBeforeSubmit`; `userevent/pd-petr-validation-settings.ue.js`).
+- Novo custom record `customrecord_pd_petr_hub_credit_usage` (`PD | PETR | Consumo de Créditos da Hub`): uma linha por chamada à Hub que cobrou créditos, com tipo de consulta, documento, créditos (`consumed`) e usuário (`pd-petr-hub-credit-usage.js`, `track`).
+- Pacote de créditos no registro de APIs: `custrecord_pd_petr_as_hub_credits_nu` ("Créditos Contratados por Mês") e `custrecord_pd_petr_as_hub_renewal_day_nu` ("Dia de Renovação do Pacote").
+- Relatório de créditos por e-mail: novo Scheduled Script `customscript_pd_petr_credit_report_ss` (diário) que envia conforme a frequência configurada; novos campos `custrecord_pd_petr_vs_report_email_cb`, `custrecord_pd_petr_vs_report_freq_ls`, `custrecord_pd_petr_vs_report_last_dt`, `custrecord_pd_petr_vs_email_sender_ls`, `custrecord_pd_petr_vs_email_recipient_ms` e custom list `customlist_pd_petr_report_frequency` (`pd-petr-credit-report.js`, `scheduled/pd-petr-credit-report.sc.js`).
+- Popup de "consultando" durante a chamada ao RESTlet e aviso quando o endereço não pode ser preenchido automaticamente (`pd-petr-entity.js`, `showLoadingMessage`; `pd-petr-mapper.js`, `insertAddress`).
+- Resolução de cidade sem código IBGE no retorno do provedor: usa o IBGE da consulta de CEP e, sem ele, busca por município + UF (`pd-petr-mapper.js`, `lookupCityInternalIdByNameAndUf`; `ENTITY.CITY_LOOKUP.NAME_FORMULAS`).
+
+### Alterado
+- Toda consulta externa de CNPJ/CPF passa a ser feita no servidor via RESTlet — o Client Script não chama mais APIs do navegador (`pd-petr-entity.js`, `fetchCompanyDataViaRestlet`; parte server-only isolada em `pd-petr-entity-lookup.js`).
+- RESTlet de consulta por documento aceita `birthDate` (DD/MM/AAAA) no corpo; `getCompanyData` passa a receber `(document, options)` (`restlet/pd-petr-entity-tax-registration.rl.js`, `pd-petr-entity-lookup.js`, `fetchCompanyDataForCnpj`).
+- Campo `custrecord_pd_petr_vs_enable_cnpj_btn_cb` renomeado na tela para `Botão "Consultar CPF/CNPJ"`; títulos de erro, mensagem de suporte e o popup "Aguarde!" passam a citar "CPF/CNPJ" (`pd-petr-entity.js`).
+- Campo `custrecord_pd_petr_vs_enable_lookup_cb` renomeado na tela de "Consulta Automática de CNPJ na Receita" para "Consulta Automática de CPF/CNPJ", já que também controla a consulta de CPF no salvamento; texto de ajuda atualizado (`customrecord_pd_petr_validation_settings.xml`, `custform_pd_petr_vs.xml`).
+- Help texts e descrições de scripts que citavam a BrasilAPI passam a citar ReceitaWS/Hub do Desenvolvedor (`customrecord_pd_petr_validation_settings.xml`, `customscript_pd_petr_tax_reg_*.xml`).
+
+### Removido
+- **BrasilAPI como provedor de CNPJ**: arquivo `pd-petr-cnpj-api.js`, constante `API.CNPJ_BASE_URL` e campo `custrecord_pd_petr_as_bra_enabled_cb`. Contas que usavam a BrasilAPI como fallback ficam sem fallback até configurar a Hub do Desenvolvedor. A BrasilAPI continua sendo usada só na consulta de CEP (`pd-petr-cep-api.js`).
+- **Campo `custrecord_pd_petr_as_rws_token_pw` (PASSWORD)**, substituído por `custrecord_pd_petr_as_rws_token_ds` (texto), mesma troca feita no token da Hub (`custrecord_pd_petr_as_hub_token_ds`). O token do ReceitaWS precisa ser informado de novo no campo novo. O SDF não exclui os campos removidos da conta — excluí-los manualmente.
+- **Campos `custrecord_pd_petr_vs_upd_fax_cb` ("Atualizar Fax") e `custrecord_pd_petr_vs_upd_alt_phone_cb` ("Atualizar Telefone Alternativo")**: não tinham efeito, porque nem ReceitaWS nem Hub do Desenvolvedor devolvem fax ou segundo telefone — só a BrasilAPI devolvia (`customrecord_pd_petr_validation_settings.xml`, `custform_pd_petr_vs.xml`, `pd-petr-constants.js`, `pd-petr-mapper.js`, adapters). Colunas removidas também da busca `customsearch_pd_petr_vs_list`. Excluir os campos manualmente na conta.
+
 ## [1.0.1] - 2026-07-31
 
 ### Adicionado

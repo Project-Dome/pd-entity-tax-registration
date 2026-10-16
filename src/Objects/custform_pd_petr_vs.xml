@@ -41,7 +41,7 @@
       <fields position="MIDDLE">
         <field>
           <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_enable_lookup_cb]</id>
-          <label>Consulta Automática de CNPJ na Receita</label>
+          <label>Consulta Automática de CPF/CNPJ</label>
           <visible>T</visible>
           <mandatory>F</mandatory>
           <displayType>NORMAL</displayType>
@@ -51,10 +51,60 @@
         </field>
         <field>
           <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_enable_cnpj_btn_cb]</id>
-          <label>Botão "Consultar CNPJ"</label>
+          <label>Botão "Consultar CPF/CNPJ"</label>
           <visible>T</visible>
           <mandatory>F</mandatory>
           <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_hub_state_reg_cb]</id>
+          <label>Consultar Inscrição Estadual (Hub)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_hub_cpf_lookup_cb]</id>
+          <label>Consultar CPF (Hub)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_hub_auto_birth_cb]</id>
+          <label>Busca Automática de Data de Nascimento (Hub)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_hub_ack_at_dh]</id>
+          <label>Ciente em (Hub)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>INLINETEXT</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_hub_ack_by_ls]</id>
+          <label>Ciente por (Hub)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>INLINETEXT</displayType>
           <columnBreak>F</columnBreak>
           <sameRowAsPrevious>F</sameRowAsPrevious>
           <quickAdd>F</quickAdd>
@@ -108,26 +158,6 @@
           <quickAdd>F</quickAdd>
         </field>
         <field>
-          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_upd_alt_phone_cb]</id>
-          <label>Atualizar Telefone Alternativo</label>
-          <visible>T</visible>
-          <mandatory>F</mandatory>
-          <displayType>NORMAL</displayType>
-          <columnBreak>F</columnBreak>
-          <sameRowAsPrevious>F</sameRowAsPrevious>
-          <quickAdd>F</quickAdd>
-        </field>
-        <field>
-          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_upd_fax_cb]</id>
-          <label>Atualizar Fax</label>
-          <visible>T</visible>
-          <mandatory>F</mandatory>
-          <displayType>NORMAL</displayType>
-          <columnBreak>F</columnBreak>
-          <sameRowAsPrevious>F</sameRowAsPrevious>
-          <quickAdd>F</quickAdd>
-        </field>
-        <field>
           <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_upd_email_cb]</id>
           <label>Atualizar E-mail</label>
           <visible>T</visible>
@@ -150,6 +180,64 @@
         <field>
           <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_upd_address_cb]</id>
           <label>Atualizar Endereço</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+      </fields>
+    </fieldGroup>
+    <fieldGroup scriptid="fieldgroup_pd_petr_vs_report">
+      <label>Relatório de Créditos da Hub</label>
+      <visible>T</visible>
+      <showTitle>T</showTitle>
+      <singleColumn>F</singleColumn>
+      <fields position="MIDDLE">
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_report_email_cb]</id>
+          <label>Receber Relatório de Créditos</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_report_freq_ls]</id>
+          <label>Frequência do Relatório</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_report_last_dt]</id>
+          <label>Último Envio do Relatório</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>INLINETEXT</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_email_sender_ls]</id>
+          <label>Remetente</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_email_recipient_ms]</id>
+          <label>Destinatários</label>
           <visible>T</visible>
           <mandatory>F</mandatory>
           <displayType>NORMAL</displayType>

@@ -6,7 +6,7 @@
   <notifyowner>T</notifyowner>
   <notifyuser>F</notifyuser>
   <isinactive>F</isinactive>
-  <description>Consulta ReceitaWS (com fallback para BrasilAPI) a partir do CNPJ e devolve os dados cadastrais de Customer/Job/Vendor, chamado pelo client script. Duas ações conforme o corpo da requisição: por id (modo de visualização — carrega, preenche e salva o record no servidor, já que setValue não funciona em modo view) ou por CNPJ (modo de criação/edição — só consulta, o client script preenche os campos).</description>
+  <description>Consulta ReceitaWS (com fallback para a Hub do Desenvolvedor) a partir do CNPJ e devolve os dados cadastrais de Customer/Job/Vendor, chamado pelo client script. Duas ações conforme o corpo da requisição: por id (modo de visualização — carrega, preenche e salva o record no servidor, já que setValue não funciona em modo view) ou por CNPJ (modo de criação/edição — só consulta, o client script preenche os campos).</description>
   <scriptdeployments>
     <scriptdeployment scriptid="customdeploy_pd_petr_tax_reg_rl">
       <allemployees>T</allemployees>

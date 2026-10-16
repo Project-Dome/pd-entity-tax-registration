@@ -9,6 +9,27 @@
  * quebraria no navegador antes de qualquer função rodar. Por isso tudo que usa
  * pd-petr-cnpj-lookup (que puxa N/cache via pd-petr-rate-limiter) mora em
  * pd-petr-entity-lookup.js, importado só pelo RESTlet e pelo User Event.
+ *
+ * - Popup de carregamento: mostrado durante a chamada síncrona ao RESTlet. O hide() só roda
+ *   no finally, depois de TODO o tratamento da resposta — escondido logo após o HTTP voltar,
+ *   show()+hide() aconteciam quase juntos e o navegador não chegava a pintar o popup. A
+ *   duration do popup é só rede de segurança para ele não ficar preso.
+ * - fetchCompanyDataViaRestlet (create/edit): o RESTlet só consulta; o preenchimento continua
+ *   no cliente via mapperService.setFields. Nunca lança — url.resolveScript fica dentro do try
+ *   (antes, uma exceção ali deixava o popup travado sem erro para o usuário).
+ * - fetchCNPJViaRestlet (view): o RESTlet carrega, preenche e salva o record. Em view o
+ *   currentRecord pode não refletir campos fora da aba renderizada, por isso a validação de
+ *   país/CNPJ acontece no servidor; o log local é só para conferência.
+ * - O corpo da resposta só é JSON quando o RESTlet respondeu de fato — um HTML de erro/login
+ *   quebraria o parse, por isso o try aninhado com mensagem própria.
+ * - Sem registro de Configuração das Validações as validações não rodam, mas o save não é
+ *   bloqueado: o aviso sai no save e no botão, não a cada mudança de campo.
+ * - A Data de Nascimento do formulário vai ao RESTlet já como DD/MM/AAAA, montada com o fuso do
+ *   navegador (formatBirthDate) — serializar o Date em JSON viraria ISO em UTC e poderia trocar o
+ *   dia. BIRTH_DATE_REQUIRED tem aviso próprio, sem a mensagem de suporte (não é erro).
+ * - CPF (11 caracteres) usa o mesmo botão e o mesmo disparo automático do save, mas só quando
+ *   "Consultar CPF (Hub)" está marcado — desmarcado, o botão avisa sem chamar o servidor e o
+ *   save não consulta (cada consulta de CPF custa de 1 a 15 créditos na Hub).
  */
 define(
     [
@@ -48,23 +69,19 @@ define(
             + 'Crie-o para habilitar a validação e a atualização automática dos dados da entidade. '
             + 'Em caso de dúvida, acione a equipe Dome.';
 
-        var SUPPORT_CONTACT_MESSAGE = 'Se o problema persistir, acione a equipe Dome informando o CNPJ consultado e o horário da tentativa.';
+        var SUPPORT_CONTACT_MESSAGE = 'Se o problema persistir, acione a equipe Dome informando o CPF/CNPJ consultado e o horário da tentativa.';
+        var CPF_LOOKUP_DISABLED_MESSAGE = 'A consulta de CPF está desabilitada. Para habilitar, marque "Consultar CPF (Hub)" no registro de Configuração das Validações.';
 
         var MISSING_COUNTRY_MESSAGE = 'Por favor, preencha o campo País primeiro.';
 
         var MISSING_CNPJ_MESSAGE = 'Por favor, preencha o campo CNPJ primeiro.';
 
-        // Feedback visual durante a chamada síncrona ao RESTlet — sem isso a tela fica travada
-        // sem nenhum indicativo até a resposta voltar (button, autofetch no save e modo view).
         function showLoadingMessage() {
             var loadingMessage = message.create({
                 title: 'Aguarde!',
-                message: 'Consultando dados do CNPJ...',
+                message: 'Consultando dados do CPF/CNPJ...',
                 type: message.Type.INFORMATION
             });
-            // duration é rede de segurança: o hide() explícito (try/finally nos call sites)
-            // já cobre o fluxo normal — isso só garante que o popup não fique preso pra sempre
-            // em algum cenário não previsto.
             loadingMessage.show({ duration: 10000 });
             return loadingMessage;
         }
@@ -180,8 +197,6 @@ define(
                 return false;
             }
 
-            // Sem configuração não há o que habilitar; o aviso ao usuário sai no save e no
-            // botão de consulta, para não alertar a cada mudança de campo.
             if (!settings) {
                 log.debug({ title: 'pd-petr-entity.manageCnpjChanged', details: MISSING_SETTINGS_MESSAGE });
                 return true;
@@ -267,8 +282,6 @@ define(
             var country = currentRecord.getValue({ fieldId: FIELDS.country.name });
             var settings = validationSettingsService.get();
 
-            // Sem configuração as validações não rodam, mas o save não é bloqueado — o
-            // usuário é avisado para criar o registro de configuração.
             if (!settings) {
                 dialog.alert({ title: 'Configuração necessária', message: MISSING_SETTINGS_MESSAGE });
                 return true;
@@ -283,9 +296,11 @@ define(
                 }
 
                 var cnpjDigits = cnpj ? digitsOnly(cnpj) : '';
-                var isNewCompleteCnpj = cnpjDigits.length === 14 && cnpjDigits !== lastFetchedDigits;
+                var isLookupableDocument = cnpjDigits.length === 14
+                    || (cnpjDigits.length === 11 && settings.enableCpfLookup);
+                var isNewCompleteDocument = isLookupableDocument && cnpjDigits !== lastFetchedDigits;
 
-                if (settings.enableAutoLookup && isNewCompleteCnpj) {
+                if (settings.enableAutoLookup && isNewCompleteDocument) {
                     fetchCNPJ(currentRecord);
                 }
             } else {
@@ -329,24 +344,32 @@ define(
                 return;
             }
 
-            if (!validationSettingsService.get()) {
+            var settings = validationSettingsService.get();
+
+            if (!settings) {
                 dialog.alert({ title: 'Configuração necessária', message: MISSING_SETTINGS_MESSAGE });
+                return;
+            }
+
+            if (digitsOnly(value).length === 11 && !settings.enableCpfLookup) {
+                dialog.alert({ title: 'Consulta de CPF desabilitada', message: CPF_LOOKUP_DISABLED_MESSAGE });
                 return;
             }
 
             var loadingMessage = showLoadingMessage();
 
-            // O hide() só roda no finally, depois de TODO o tratamento do resultado (dialog de
-            // erro ou setFields) — não logo após a chamada HTTP retornar. Quando a resposta é
-            // rápida, esconder o popup ali (antes de checar sucesso/erro e preencher os campos)
-            // fazia show()+hide() acontecerem quase no mesmo instante, sem o navegador ter tempo
-            // de pintar a mensagem na tela: parecia que o popup "não aparecia".
             try {
-                var result = fetchCompanyDataViaRestlet(value);
+                var birthDate = formatBirthDate(currentRecord.getValue({ fieldId: FIELDS.birthDate.name }));
+                var result = fetchCompanyDataViaRestlet(value, birthDate);
+
+                if (!result.success && result.reason === 'BIRTH_DATE_REQUIRED') {
+                    dialog.alert({ title: 'Data de Nascimento necessária', message: result.error });
+                    return;
+                }
 
                 if (!result.success) {
                     dialog.alert({
-                        title: 'Erro ao consultar CNPJ',
+                        title: 'Erro ao consultar CPF/CNPJ',
                         message: (result.error || 'Não foi possível recuperar os dados da empresa.') + ' ' + SUPPORT_CONTACT_MESSAGE
                     });
                     return;
@@ -360,8 +383,6 @@ define(
                 var mapResult = mapperService.setFields(currentRecord, result.data);
                 lastFetchedDigits = digitsOnly(value);
 
-                // Aviso específico do preenchimento (ex.: Cidade não identificada
-                // automaticamente) — distinto do aviso de qualidade dos dados acima.
                 if (mapResult && mapResult.warning) {
                     dialog.alert({ title: mapResult.warning.title, message: mapResult.warning.message });
                 }
@@ -370,17 +391,16 @@ define(
             }
         }
 
-        // Chamada ao RESTlet só de consulta (sem carregar/salvar nenhum record) — usada no
-        // fluxo de create/edit (botão e autofetch do save). O preenchimento de campos continua
-        // acontecendo aqui, no cliente, via mapperService.setFields — só a chamada HTTP externa
-        // (com o token do ReceitaWS) é que sai do navegador. Diferente de fetchCNPJViaRestlet
-        // (abaixo), que é exclusiva do modo view: lá o record já tem id e setValue não funciona
-        // em view, então quem carrega/preenche/salva é o próprio RESTlet.
-        // Nunca lança exceção — inclusive url.resolveScript entra no try. Antes ele ficava
-        // fora, e uma exceção ali (ex.: deployment sem acesso pro papel do usuário) subia sem
-        // ser capturada em lugar nenhum, e o chamador (fetchCNPJ) nunca chegava no
-        // loadingMessage.hide() — popup travado, silenciosamente, sem erro nenhum pro usuário.
-        function fetchCompanyDataViaRestlet(cnpj) {
+        function formatBirthDate(value) {
+            if (!value || typeof value.getDate !== 'function') return undefined;
+
+            var day = value.getDate();
+            var month = value.getMonth() + 1;
+
+            return (day < 10 ? '0' : '') + day + '/' + (month < 10 ? '0' : '') + month + '/' + value.getFullYear();
+        }
+
+        function fetchCompanyDataViaRestlet(cnpj, birthDate) {
             try {
                 var restletUrl = url.resolveScript({
                     scriptId: constantsModule.SCRIPTS.RESTLET.SCRIPT_ID,
@@ -391,7 +411,7 @@ define(
                 var response = https.post({
                     url: restletUrl,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cnpj: cnpj })
+                    body: JSON.stringify({ cnpj: cnpj, birthDate: birthDate })
                 });
 
                 if (response.code !== 200) {
@@ -406,9 +426,6 @@ define(
                     };
                 }
 
-                // O corpo só é JSON quando o RESTlet respondeu de fato; um HTML de erro/login
-                // chegaria aqui e quebraria o parse — try aninhado só pra manter a mensagem
-                // específica desse caso, distinta da falha de comunicação do catch de fora.
                 try {
                     return JSON.parse(response.body);
                 } catch (parseError) {
@@ -437,10 +454,6 @@ define(
 
         function fetchCNPJViaRestlet(currentRecord) {
 
-            // Diagnóstico: em modo View, currentRecord pode não refletir o valor de campos
-            // fora da aba atualmente renderizada, mesmo com o campo preenchido no registro —
-            // por isso a validação de país/CNPJ de fato acontece no servidor (fetchCNPJForRecord),
-            // que carrega o record completo via record.load. Este log é só para conferência.
             log.debug({
                 title: 'pd-petr-entity.fetchCNPJViaRestlet',
                 details: {
@@ -451,10 +464,6 @@ define(
 
             var loadingMessage = showLoadingMessage();
 
-            // Mesmo motivo do fetchCNPJ: o hide() só roda no finally, depois de TODO o
-            // tratamento da resposta (erro ou reload) — não logo após o https.post retornar.
-            // Escondido cedo demais, o popup não chegava a ser pintado na tela numa resposta
-            // rápida (show()+hide() quase no mesmo instante).
             try {
                 var restletUrl = url.resolveScript({
                     scriptId: constantsModule.SCRIPTS.RESTLET.SCRIPT_ID,
@@ -480,7 +489,7 @@ define(
                     });
 
                     dialog.alert({
-                        title: 'Erro ao consultar CNPJ',
+                        title: 'Erro ao consultar CPF/CNPJ',
                         message: 'O serviço de consulta respondeu com o código ' + response.code + '. ' + SUPPORT_CONTACT_MESSAGE
                     });
                     return;
@@ -488,8 +497,6 @@ define(
 
                 var result;
 
-                // O corpo só é JSON quando o RESTlet respondeu de fato; um HTML de erro/login
-                // chegaria aqui e quebraria o parse sem tratamento.
                 try {
                     result = JSON.parse(response.body);
                 } catch (e) {
@@ -499,7 +506,7 @@ define(
                     });
 
                     dialog.alert({
-                        title: 'Erro ao consultar CNPJ',
+                        title: 'Erro ao consultar CPF/CNPJ',
                         message: 'O serviço de consulta devolveu uma resposta inesperada. ' + SUPPORT_CONTACT_MESSAGE
                     });
                     return;
@@ -507,7 +514,7 @@ define(
 
                 if (!result.success) {
                     dialog.alert({
-                        title: 'Erro ao consultar CNPJ',
+                        title: 'Erro ao consultar CPF/CNPJ',
                         message: (result.error || 'Não foi possível atualizar os dados da empresa.') + ' ' + SUPPORT_CONTACT_MESSAGE
                     });
                     return;
@@ -525,7 +532,7 @@ define(
                 });
 
                 dialog.alert({
-                    title: 'Erro ao consultar CNPJ',
+                    title: 'Erro ao consultar CPF/CNPJ',
                     message: 'Não foi possível se comunicar com o serviço de consulta. ' + SUPPORT_CONTACT_MESSAGE
                 });
             } finally {

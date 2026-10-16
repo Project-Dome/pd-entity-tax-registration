@@ -1,0 +1,20 @@
+<customlist scriptid="customlist_pd_petr_report_frequency">
+  <description>Frequência de envio do relatório de créditos da Hub do Desenvolvedor (registro PD | PETR | Configuração das Validações).</description>
+  <isinactive>F</isinactive>
+  <isordered>T</isordered>
+  <name>PD | PETR | Freq. do Relatório</name>
+  <customvalues>
+    <customvalue scriptid="val_pd_petr_rf_daily">
+      <isinactive>F</isinactive>
+      <value>Diário</value>
+    </customvalue>
+    <customvalue scriptid="val_pd_petr_rf_weekly">
+      <isinactive>F</isinactive>
+      <value>Semanal</value>
+    </customvalue>
+    <customvalue scriptid="val_pd_petr_rf_monthly">
+      <isinactive>F</isinactive>
+      <value>Mensal</value>
+    </customvalue>
+  </customvalues>
+</customlist>

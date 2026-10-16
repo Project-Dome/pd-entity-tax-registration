@@ -3,6 +3,13 @@
  * @NModuleScope Public
  * @author Produto Dome - Vinicius Betim
  */
+/*
+ * validateCNPJ suporta o CNPJ alfanumérico da Receita Federal: o dígito verificador usa o
+ * código ASCII de cada caractere menos 48 (0-9 => 0-9, A-Z => 17-42).
+ *
+ * validateApiResponse: retorno de CNPJ precisa estar "ATIVA"; retorno de CPF (tipo_pessoa "PF")
+ * precisa estar "REGULAR". Fora disso devolve um aviso — não bloqueia o cadastro.
+ */
 define([], function () {
 
     function validateCNPJ(cnpj) {
@@ -11,7 +18,6 @@ define([], function () {
         if (!/^[0-9A-Z]{12}[0-9]{2}$/.test(cnpj)) return false;
         if (/^(.)\1+$/.test(cnpj)) return false;
 
-        // Suporta o CNPJ alfanumérico da Receita Federal: dígito verificador usa o código ASCII de cada caractere menos 48 (0-9 => 0-9, A-Z => 17-42).
         function charValue(ch) {
             return ch.charCodeAt(0) - 48;
         }
@@ -69,6 +75,18 @@ define([], function () {
     }
 
     function validateApiResponse(body) {
+        if (body.tipo_pessoa === 'PF') {
+            var personStatus = body.situacao_cadastral || '';
+            if (personStatus.toUpperCase() !== 'REGULAR') {
+                return {
+                    valid: false,
+                    title: 'Situação Cadastral do CPF',
+                    message: 'O CPF ' + body.cpf + ' não está regular na Receita Federal. Situação atual: ' + personStatus
+                };
+            }
+            return { valid: true };
+        }
+
         var status = body.descricao_situacao_cadastral || '';
         if (status.toUpperCase() !== 'ATIVA') {
             return {

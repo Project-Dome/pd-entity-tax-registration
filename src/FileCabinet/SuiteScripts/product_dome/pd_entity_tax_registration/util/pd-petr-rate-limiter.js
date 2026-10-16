@@ -3,30 +3,29 @@
  * @NModuleScope Public
  * @author Produto Dome - Mario Augusto Braga Costa
  */
+/*
+ * Rate limiter de janela fixa em N/cache: cada chamada cai num "bucket" de windowInSeconds
+ * segundos (não é janela deslizante), e a chave do cache inclui o número do bucket.
+ *
+ * - O N/cache recusa ttl menor que 300s. Não afeta a contagem: cada janela usa uma chave nova;
+ *   um ttl maior só deixa a chave antiga ociosa até ser descartada.
+ * - O N/cache não é transacional: em concorrência alta pode passar 1 chamada além do limite.
+ *   Aceito por design (ver spec) — o HTTP 429 do provedor é a rede de segurança final.
+ * - consume() nunca lança: se o cache falhar, devolve true (assume que há cota) para não
+ *   derrubar o provedor primário nem impedir o fallback.
+ * - getRetryAfterSeconds() é cálculo puro sobre o relógio — não lê o cache nem depende da
+ *   key, então serve tanto para o bloqueio preventivo quanto para o HTTP 429 do provedor.
+ */
 define(['N/cache'], function (cache) {
 
     var CACHE_NAME = 'pd_petr_rate_limiter';
 
-    // O N/cache do NetSuite recusa ttl menor que 300 segundos ("Input value ttl must be greater
-    // than or equal to 300"). Isso não afeta a contagem: a chave do cache já inclui o número do
-    // bucket (minuto corrente), então cada janela usa uma chave nova e começa do zero — um ttl
-    // maior que a janela só deixa a chave antiga ociosa na memória até ser descartada.
     var MIN_TTL_SECONDS = 300;
 
     function resolveTtl(windowInSeconds) {
         return Math.max(MIN_TTL_SECONDS, windowInSeconds * 2);
     }
 
-    // Janela fixa: a chamada corrente cai num "bucket" (janela de windowInSeconds segundos) —
-    // não é uma janela deslizante. O contador do bucket é lido e regravado no N/cache, que não
-    // é transacional: em concorrência alta, duas chamadas simultâneas podem ler o mesmo valor
-    // antes de qualquer uma gravar, deixando passar 1 chamada a mais do que o limite. Isso é
-    // aceito por design (documentado na spec) — o HTTP 429 real do provedor é a rede de
-    // segurança final contra esse cenário.
-    // Nunca lança: o contador é só uma otimização para evitar chamadas obviamente perdidas, e
-    // a autoridade real sobre o limite é o HTTP 429 do provedor. Se o cache falhar por qualquer
-    // motivo, devolve `true` (assume que há cota) para não derrubar o provedor primário nem
-    // impedir o fallback — o 429 cobre o caso de realmente estar acima do limite.
     function consume(key, limit, windowInSeconds) {
         try {
             var ttl = resolveTtl(windowInSeconds);
@@ -63,9 +62,6 @@ define(['N/cache'], function (cache) {
         }
     }
 
-    // Cálculo puro baseado no relógio — não lê o cache nem depende da `key`, então serve tanto
-    // para o bloqueio preventivo do consume() quanto para o caso de HTTP 429 vindo do próprio
-    // provedor (ver pd-petr-cnpj-lookup.js).
     function getRetryAfterSeconds(windowInSeconds) {
         var nowInSeconds = Math.floor(Date.now() / 1000);
         return windowInSeconds - (nowInSeconds % windowInSeconds);

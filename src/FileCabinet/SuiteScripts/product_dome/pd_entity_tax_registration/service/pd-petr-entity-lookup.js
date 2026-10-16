@@ -12,6 +12,14 @@
  * N/cache (que só existe no lado servidor) e quebraria com "Module does not exist: N/cache.js",
  * mesmo sem o cliente jamais chamar estas funções. Só RESTlet e User Event importam este
  * arquivo; o Client Script nunca.
+ *
+ * - fetchCNPJForRecord: ação do RESTlet para o modo view — carrega o record por id, consulta,
+ *   preenche e salva no servidor (em view o setValue do cliente não funciona). Prioriza o
+ *   aviso de qualidade dos dados; senão, repassa o aviso do preenchimento do endereço.
+ * - fetchCompanyDataForCnpj: ação do RESTlet para create/edit (por CNPJ, sem tocar em record).
+ * - manageCsvImport: o CSV Import conta como consulta automática. O enriquecimento não pode
+ *   abortar a importação — uma exceção subiria até o beforeSubmit e cancelaria o submit; o
+ *   try/catch é defensivo, já que getCompanyData nunca lança.
  */
 define(
     [
@@ -66,8 +74,6 @@ define(
             return null;
         }
 
-        // Ação do RESTlet para o modo view: carrega o record por id, consulta, preenche e salva
-        // no servidor — em modo view o setValue do cliente não funciona.
         function fetchCNPJForRecord(recordType, id) {
             var entityRecord = record.load({ type: recordType, id: id, isDynamic: true });
 
@@ -90,7 +96,9 @@ define(
                 return { success: false, error: MISSING_SETTINGS_MESSAGE };
             }
 
-            var result = cnpjLookupService.getCompanyData(cnpj);
+            var result = cnpjLookupService.getCompanyData(cnpj, {
+                birthDate: entityRecord.getValue({ fieldId: FIELDS.birthDate.name })
+            });
 
             if (!result.success) {
                 return { success: false, error: result.error };
@@ -101,8 +109,6 @@ define(
             var mapResult = mapperService.setFields(entityRecord, result.data);
             entityRecord.save();
 
-            // Prioriza o aviso de qualidade dos dados (validation) quando presente; senão,
-            // repassa o aviso do preenchimento do endereço (ex.: Cidade não identificada).
             var warning = !validation.valid
                 ? { title: validation.title, message: validation.message }
                 : (mapResult && mapResult.warning) || null;
@@ -110,14 +116,11 @@ define(
             return { success: true, warning: warning };
         }
 
-        // Ação do RESTlet para o fluxo de create/edit (por CNPJ, sem tocar em nenhum record) —
-        // quem chama do lado do cliente é fetchCompanyDataViaRestlet, em pd-petr-entity.js.
-        function fetchCompanyDataForCnpj(cnpj) {
-            return cnpjLookupService.getCompanyData(cnpj);
+        function fetchCompanyDataForCnpj(cnpj, birthDate) {
+            return cnpjLookupService.getCompanyData(cnpj, { birthDate: birthDate });
         }
 
         function manageCsvImport(newRecord) {
-            // CSV Import entra como consulta automática (não é disparo manual pelo botão)
             var settings = validationSettingsService.get();
 
             if (!settings) {
@@ -137,19 +140,20 @@ define(
             if (!cnpj) return;
 
             var formatError = validateFederalRegistrationFormat(cnpj);
-            if (formatError || digitsOnly(cnpj).length !== 14) {
+            var documentLength = digitsOnly(cnpj).length;
+            var isLookupableDocument = documentLength === 14
+                || (documentLength === 11 && settings.enableCpfLookup);
+
+            if (formatError || !isLookupableDocument) {
                 log.debug('pd-petr-entity-lookup.manageCsvImport', 'CNPJ "' + cnpj + '" não é válido — pulando enriquecimento.');
                 return;
             }
 
-            // O enriquecimento não pode abortar a importação: uma exceção aqui sobe até o
-            // beforeSubmit do User Event e cancela o submit, impedindo a criação do registro.
-            // cnpjLookupService.getCompanyData nunca lança (falha de provedor vira
-            // result.success = false), o try/catch aqui é defensivo contra qualquer erro
-            // inesperado fora desse contrato.
             try {
 
-                var result = cnpjLookupService.getCompanyData(cnpj);
+                var result = cnpjLookupService.getCompanyData(cnpj, {
+                    birthDate: newRecord.getValue({ fieldId: FIELDS.birthDate.name })
+                });
 
                 if (!result.success) {
                     log.debug('pd-petr-entity-lookup.manageCsvImport', result.error + ' — pulando enriquecimento.');

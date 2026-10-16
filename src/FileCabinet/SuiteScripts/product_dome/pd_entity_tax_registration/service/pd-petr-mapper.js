@@ -3,6 +3,29 @@
  * @NModuleScope Public
  * @author Produto Dome - Vinicius Betim & Mário Augusto Braga Costa
  */
+/*
+ * - Sem registro de Configuração das Validações o enriquecimento não roda — quem chamou avisa
+ *   o usuário.
+ * - companyname é a razão social exibida em toda a conta, por isso sempre reflete o retorno da
+ *   Receita, mesmo sobrescrevendo valor já preenchido. Os demais campos só são preenchidos se
+ *   estiverem vazios.
+ * - Inscrição Estadual só vem da Hub e só quando enableStateRegLookup está marcado (custa 2
+ *   créditos adicionais) — por isso usa essa flag em vez de uma "update*".
+ * - Retorno de CPF (tipo_pessoa "PF") só preenche o nome, em firstname, sempre refletindo a
+ *   Receita (mesma regra de companyname). firstname só existe em cadastro de Pessoa Física
+ *   (Individual); sem ele, devolve um aviso em vez de falhar. A data de nascimento devolvida
+ *   pela Hub (DD/MM/AAAA) vai para custentity_pd_petr_birth_date_dt somente se estiver vazio. * - insertAddress devolve um aviso {title, message} quando não completa o endereço (ex.:
+ *   Cidade não identificada), repassado a quem chamou setFields. Falhar no endereço não pode
+ *   abortar o save: manipular o subrecord fora do modo dynamic é instável no NetSuite
+ *   (getSublistSubrecord pode devolver null). Em modo dynamic, ler linha existente exige
+ *   selectLine + getCurrentSublistSubrecord + cancelLine.
+ * - Cidade: prioriza o código IBGE (do provedor de CNPJ — nenhum dos atuais retorna — ou da
+ *   consulta de CEP, que devolve ibge.city). Sem IBGE, busca por município + UF: filtro amplo
+ *   por UF + 1ª letra (fórmula SQL, ver NAME_FORMULAS) e comparação exata em JS sem acento e
+ *   caixa, porque o "startswith" do formulatext não é acento-insensível.
+ * - regime_tributario: "ano" pode vir como string — comparado com Number() para não virar
+ *   comparação lexicográfica ("9" > "10").
+ */
 define(
     [
         '../modules/pd-petr-constants',
@@ -21,13 +44,16 @@ define(
         function setFields(currentRecord, json) {
             var settings = validationSettingsService.get();
 
-            // Sem registro de configuração o enriquecimento não roda — quem chamou avisa o usuário
             if (!settings) {
                 log.error({
                     title: 'pd-petr-mapper.setFields',
                     details: 'Não há registro de Configurações de Validação ativo — enriquecimento não executado.'
                 });
                 return { success: false };
+            }
+
+            if (json.tipo_pessoa === 'PF') {
+                return setPersonFields(currentRecord, json);
             }
 
             var wasLegalNameEmpty = fieldExists(currentRecord, FIELDS.companyName.name)
@@ -37,16 +63,20 @@ define(
                 currentRecord.setValue({ fieldId: FIELDS.companyName.name, value: json.nome_fantasia });
             }
 
-            // companyname é a razão social exibida em toda a conta (listas, busca, documentos) —
-            // por isso sempre reflete o retorno da Receita, mesmo sobrescrevendo valor já preenchido.
             if (settings.updateCompanyName && json.razao_social) {
                 currentRecord.setValue({ fieldId: FIELDS.tradeName.name, value: json.razao_social });
             }
 
             if (settings.updatePhone && json.ddd_telefone_1) setIfEmpty(currentRecord, FIELDS.phone.name, formatPhone(json.ddd_telefone_1));
-            if (settings.updateAltPhone && json.ddd_telefone_2) setIfEmpty(currentRecord, FIELDS.altPhone.name, formatPhone(json.ddd_telefone_2));
-            if (settings.updateFax && json.ddd_fax) setIfEmpty(currentRecord, FIELDS.fax.name, formatPhone(json.ddd_fax));
             if (settings.updateEmail && json.email) setIfEmpty(currentRecord, FIELDS.email.name, json.email);
+
+            if (settings.enableStateRegLookup && json.inscricao_estadual) {
+                if (fieldExists(currentRecord, FIELDS.stateRegistration.name)) {
+                    setIfEmpty(currentRecord, FIELDS.stateRegistration.name, json.inscricao_estadual);
+                } else {
+                    log.debug('pd-petr-mapper.setFields', 'Field ' + FIELDS.stateRegistration.name + ' not present on this record/form — skipping state registration mapping.');
+                }
+            }
 
             if (settings.updateTaxRegime) {
                 if (fieldExists(currentRecord, FIELDS.taxRegime.name)) {
@@ -68,12 +98,40 @@ define(
                 log.debug('pd-petr-mapper.setFields', json.qsa.length + ' socio(s) found in qsa — not mapped (would require a related custom record, out of scope for this product)');
             }
 
-            // insertAddress devolve um aviso (objeto {title, message}) quando não consegue
-            // completar o endereço automaticamente (ex.: Cidade não identificada) — repassado
-            // pra quem chamou setFields exibir ao usuário, em vez de ficar só no log.
             var addressWarning = settings.updateAddress ? insertAddress(currentRecord, json) : null;
 
             return { success: true, warning: addressWarning || null };
+        }
+
+        function setPersonFields(currentRecord, json) {
+            if (!json.nome) return { success: true, warning: null };
+
+            if (!fieldExists(currentRecord, FIELDS.firstName.name)) {
+                log.debug('pd-petr-mapper.setPersonFields', 'Field ' + FIELDS.firstName.name + ' not present on this record/form — skipping CPF name mapping.');
+                return {
+                    success: true,
+                    warning: {
+                        title: 'Nome não preenchido',
+                        message: 'O CPF foi consultado, mas o campo Nome não está disponível neste cadastro. '
+                            + 'Verifique se o cadastro está marcado como Pessoa Física (Individual).'
+                    }
+                };
+            }
+
+            currentRecord.setValue({ fieldId: FIELDS.firstName.name, value: json.nome });
+
+            var birthDate = parseHubDate(json.data_nascimento);
+            if (birthDate && fieldExists(currentRecord, FIELDS.birthDate.name)) {
+                setIfEmpty(currentRecord, FIELDS.birthDate.name, birthDate);
+            }
+
+            return { success: true, warning: null };
+        }
+
+        function parseHubDate(value) {
+            var match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(value || '').trim());
+            if (!match) return null;
+            return new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
         }
 
         function insertAddress(currentRecord, json) {
@@ -106,9 +164,6 @@ define(
             var line;
             var subrecord;
 
-            // Manipular o subrecord de endereço fora do modo dynamic é instável no NetSuite
-            // (getSublistSubrecord pode devolver null). Falhar aqui não pode abortar o save
-            // do registro — o endereço é enriquecimento, não dado obrigatório.
             try {
 
                 if (isDynamic) {
@@ -190,9 +245,6 @@ define(
             var isDynamic = currentRecord.isDynamic;
             var hasMatch = false;
 
-            // Leitura de linha já existente: em modo dynamic, getSublistSubrecord não é
-            // suportado — é preciso selectLine + getCurrentSublistSubrecord, e cancelLine
-            // ao final para não deixar a linha selecionada antes do selectNewLine seguinte.
             for (var line = 0; line < lineCount && !hasMatch; line++) {
                 var existingSubrecord;
 
@@ -252,12 +304,6 @@ define(
             }
         }
 
-        // Prioriza o código IBGE, na ordem: (1) o do próprio provedor de CNPJ (só a BrasilAPI
-        // retorna); (2) o da consulta de CEP (pd-petr-cep-api.js, já chamada em insertAddress
-        // para completar rua/bairro — ela também devolve `ibge.city`, reaproveitado aqui em vez
-        // de fazer nova chamada). Sem nenhum dos dois — típico quando o provedor foi o ReceitaWS
-        // e a consulta de CEP falhou/não rodou — tenta por município + UF (busca por fórmula,
-        // ver lookupCityInternalIdByNameAndUf).
         function resolveCityInternalId(json, uf, cep) {
             var ibgeCode = json.codigo_municipio_ibge || (cep && cep.ibge && cep.ibge.city);
 
@@ -275,12 +321,6 @@ define(
             return null;
         }
 
-        // Busca por município + UF, portada de pd-pcnpj-suitesuccess-city.service.js (projeto
-        // de referência pd-p-cnpj-integration): filtro amplo por UF + primeira letra do nome
-        // (via fórmula SQL, ver NAME_FORMULAS em pd-petr-constants.js), depois comparação exata
-        // em JS normalizando acentos/caixa dos dois lados — a busca nativa "startswith" no
-        // formulatext não é acento-insensível, então a 1ª letra usada no filtro já é a
-        // normalizada (mesmo comportamento aceito na implementação de referência).
         function lookupCityInternalIdByNameAndUf(name, uf) {
             if (!name || !uf) return null;
             try {
@@ -316,8 +356,6 @@ define(
             }
         }
 
-        // Minúsculas + sem acento, só para comparação — diferente de normalize() acima, que
-        // preserva caixa porque é usada para preencher valor de campo (logradouro/bairro).
         function normalizeForCompare(str) {
             if (!str) return '';
             var stripped = typeof str.normalize === 'function'
@@ -357,8 +395,6 @@ define(
             if (json.opcao_pelo_simples === true) return labels.SIMPLES;
 
             if (json.regime_tributario && json.regime_tributario.length) {
-                // Number() porque a BrasilAPI pode devolver "ano" como string, e aí a
-                // comparação seria lexicográfica ("9" > "10" daria true)
                 var latest = json.regime_tributario.reduce(function (latestEntry, entry) {
                     var isMoreRecent = !latestEntry || Number(entry.ano) > Number(latestEntry.ano);
                     return isMoreRecent ? entry : latestEntry;

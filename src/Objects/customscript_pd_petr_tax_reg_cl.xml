@@ -6,7 +6,7 @@
   <notifyowner>T</notifyowner>
   <notifyuser>F</notifyuser>
   <isinactive>F</isinactive>
-  <description>Valida formato e duplicidade de CNPJ/CPF/Registro Fiscal Internacional em tempo real, e consulta ReceitaWS/BrasilAPI (via RESTlet, nunca direto do navegador) para enriquecer dados cadastrais, para Customer/Job/Vendor.</description>
+  <description>Valida formato e duplicidade de CNPJ/CPF/Registro Fiscal Internacional em tempo real, e consulta ReceitaWS/Hub do Desenvolvedor (via RESTlet, nunca direto do navegador) para enriquecer dados cadastrais, para Customer/Job/Vendor.</description>
   <scriptdeployments>
     <scriptdeployment scriptid="customdeploy_pd_petr_tax_reg_cl_customer">
       <allemployees>T</allemployees>

@@ -50,23 +50,41 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_enable_lookup_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, ao salvar um cadastro (criação ou edição) com CNPJ válido, o sistema consulta automaticamente a BrasilAPI para enriquecer os dados cadastrais.</help>
-      <label>Consulta Automática de CNPJ na Receita</label>
+      <help>Quando marcado, ao salvar um cadastro (criação ou edição) com CNPJ ou CPF válido, o sistema consulta automaticamente os provedores (ReceitaWS/Hub do Desenvolvedor) para enriquecer os dados cadastrais. Para CPF, exige também "Consultar CPF (Hub)" marcado.</help>
+      <label>Consulta Automática de CPF/CNPJ</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
     </customrecordcustomfield>
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_enable_cnpj_btn_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, exibe o botão "Consultar CNPJ" no formulário de Customer/Job/Vendor, permitindo a consulta manual à Receita a qualquer momento.</help>
-      <label>Botão "Consultar CNPJ"</label>
+      <help>Quando marcado, exibe o botão de consulta no formulário de Customer/Job/Vendor, permitindo a consulta manual à Receita a qualquer momento. O botão aparece como "Consultar CPF/CNPJ" quando "Consultar CPF (Hub)" está marcado, e como "Consultar CNPJ" quando não está.</help>
+      <label>Botão "Consultar CPF/CNPJ"</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_hub_state_reg_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, a consulta de CNPJ pela Hub do Desenvolvedor também traz a Inscrição Estadual da empresa. A Inscrição Estadual vem na mesma consulta, sem créditos adicionais. Esta opção não é afetada por "Atualizar Todos os Campos" — precisa ser marcada individualmente. Não tem efeito quando a consulta é respondida pelo ReceitaWS, que não retorna Inscrição Estadual.</help>
+      <label>Consultar Inscrição Estadual (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_hub_cpf_lookup_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, permite consultar os dados de pessoas físicas (CPF) na Hub do Desenvolvedor. Atenção ao consumo de créditos da conta da Hub: 1 crédito quando o CPF já está na base da Hub; quando não está, até 15 créditos (10 para obter a data de nascimento + 5 para a consulta na Receita Federal). Quando desmarcado, o CPF continua sendo validado (formato e duplicidade), mas nenhuma consulta é feita na Hub. Esta opção não é afetada por "Atualizar Todos os Campos" — precisa ser marcada individualmente. Requer a Hub do Desenvolvedor habilitada e com token no registro de Configuração das APIs.</help>
+      <label>Consultar CPF (Hub)</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
     </customrecordcustomfield>
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_trade_name_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o campo Nome Fantasia é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <help>Quando marcado, o campo Nome Fantasia é preenchido automaticamente com o retorno da Receita (ReceitaWS/Hub do Desenvolvedor), se estiver vazio.</help>
       <label>Atualizar Nome Fantasia</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -74,7 +92,7 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_legal_name_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o campo Razão Social é preenchido automaticamente com o retorno da Receita (BrasilAPI) — sempre reflete a Receita, mesmo substituindo um valor já preenchido.</help>
+      <help>Quando marcado, o campo Razão Social é preenchido automaticamente com o retorno da Receita (ReceitaWS/Hub do Desenvolvedor) — sempre reflete a Receita, mesmo substituindo um valor já preenchido.</help>
       <label>Atualizar Razão Social</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -82,31 +100,15 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_phone_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o campo Telefone é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <help>Quando marcado, o campo Telefone é preenchido automaticamente com o retorno da Receita (ReceitaWS/Hub do Desenvolvedor), se estiver vazio.</help>
       <label>Atualizar Telefone</label>
-      <searchlevel>2</searchlevel>
-      <storevalue>T</storevalue>
-    </customrecordcustomfield>
-    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_alt_phone_cb">
-      <accesslevel>2</accesslevel>
-      <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o campo Telefone Alternativo é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
-      <label>Atualizar Telefone Alternativo</label>
-      <searchlevel>2</searchlevel>
-      <storevalue>T</storevalue>
-    </customrecordcustomfield>
-    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_fax_cb">
-      <accesslevel>2</accesslevel>
-      <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o campo Fax é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
-      <label>Atualizar Fax</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
     </customrecordcustomfield>
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_email_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o campo E-mail é preenchido automaticamente com o retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <help>Quando marcado, o campo E-mail é preenchido automaticamente com o retorno da Receita (ReceitaWS/Hub do Desenvolvedor), se estiver vazio.</help>
       <label>Atualizar E-mail</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -114,7 +116,7 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_tax_regime_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o campo Regime Tributário é preenchido automaticamente a partir do retorno da Receita (BrasilAPI), se estiver vazio.</help>
+      <help>Quando marcado, o campo Regime Tributário é preenchido automaticamente a partir do retorno da Receita (ReceitaWS/Hub do Desenvolvedor), se estiver vazio.</help>
       <label>Atualizar Regime Tributário</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -122,7 +124,7 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_address_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o endereço é preenchido automaticamente com o retorno da Receita/CEP (BrasilAPI), somente se o cadastro de endereços estiver vazio.</help>
+      <help>Quando marcado, o endereço é preenchido automaticamente com o retorno da Receita (ReceitaWS/Hub do Desenvolvedor) e da consulta de CEP, somente se o cadastro de endereços estiver vazio.</help>
       <label>Atualizar Endereço</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -130,9 +132,79 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_all_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, habilita a atualização automática de todos os campos via Receita (BrasilAPI) e desabilita a seleção individual dos campos abaixo.</help>
+      <help>Quando marcado, habilita a atualização automática de todos os campos via Receita (ReceitaWS/Hub do Desenvolvedor) e desabilita a seleção individual dos campos abaixo.</help>
       <label>Atualizar Todos os Campos</label>
       <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_hub_auto_birth_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, um CPF que não está na base da Hub do Desenvolvedor e não tem Data de Nascimento no cadastro tem a data buscada automaticamente na Hub (10 créditos) e é consultado na Receita Federal (5 créditos) — até 15 créditos por CPF. Desmarcado, o usuário precisa preencher a Data de Nascimento do cadastro. Ao marcar, é exibido um aviso de possível cobrança adicional; o usuário e a data/hora da ciência ficam registrados. Só fica disponível com "Consultar CPF (Hub)" marcado e não é afetada por "Atualizar Todos os Campos".</help>
+      <label>Busca Automática de Data de Nascimento (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_hub_ack_at_dh">
+      <accesslevel>2</accesslevel>
+      <fieldtype>DATETIMETZ</fieldtype>
+      <help>Data e hora em que "Busca Automática de Data de Nascimento (Hub)" foi marcada pela última vez, após o aviso de possível cobrança adicional. Preenchido automaticamente ao salvar.</help>
+      <label>Ciente em (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_hub_ack_by_ls">
+      <accesslevel>2</accesslevel>
+      <fieldtype>SELECT</fieldtype>
+      <help>Usuário que marcou "Busca Automática de Data de Nascimento (Hub)" pela última vez, após o aviso de possível cobrança adicional. Preenchido automaticamente ao salvar.</help>
+      <label>Ciente por (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <selectrecordtype>-4</selectrecordtype>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_report_email_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, o relatório de créditos consumidos da Hub do Desenvolvedor é enviado por e-mail aos Destinatários, na Frequência escolhida. Requer Remetente e ao menos um Destinatário.</help>
+      <label>Receber Relatório de Créditos</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_report_freq_ls">
+      <accesslevel>2</accesslevel>
+      <fieldtype>SELECT</fieldtype>
+      <help>Com que frequência o relatório de créditos é enviado: Diário, Semanal (7 dias após o último envio) ou Mensal (1 mês após o último envio).</help>
+      <label>Frequência do Relatório</label>
+      <searchlevel>2</searchlevel>
+      <selectrecordtype>[scriptid=customlist_pd_petr_report_frequency]</selectrecordtype>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_report_last_dt">
+      <accesslevel>2</accesslevel>
+      <fieldtype>DATE</fieldtype>
+      <help>Data do último envio do relatório de créditos. Preenchido automaticamente; a próxima data de envio é calculada a partir dela conforme a Frequência.</help>
+      <label>Último Envio do Relatório</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_email_sender_ls">
+      <accesslevel>2</accesslevel>
+      <fieldtype>SELECT</fieldtype>
+      <help>Funcionário que aparece como remetente do e-mail do relatório de créditos. O NetSuite exige um funcionário como autor do e-mail.</help>
+      <label>Remetente</label>
+      <searchlevel>2</searchlevel>
+      <selectrecordtype>-4</selectrecordtype>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_email_recipient_ms">
+      <accesslevel>2</accesslevel>
+      <fieldtype>MULTISELECT</fieldtype>
+      <help>Funcionários que recebem o e-mail do relatório de créditos (é usado o e-mail do cadastro de cada funcionário).</help>
+      <label>Destinatários</label>
+      <searchlevel>2</searchlevel>
+      <selectrecordtype>-4</selectrecordtype>
       <storevalue>T</storevalue>
     </customrecordcustomfield>
   </customrecordcustomfields>

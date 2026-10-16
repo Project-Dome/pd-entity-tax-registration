@@ -8,7 +8,7 @@
   <allowquickadd>T</allowquickadd>
   <allowquicksearch>T</allowquicksearch>
   <allowuiaccess>T</allowuiaccess>
-  <description>Registro único de configuração dos provedores de consulta de CNPJ (ReceitaWS e BrasilAPI) do módulo PD | PETR (Entity Tax Registration) — habilitação, token e limite de consultas por minuto de cada provedor.</description>
+  <description>Registro único de configuração dos provedores de consulta de CNPJ (ReceitaWS e Hub do Desenvolvedor) do módulo PD | PETR (Entity Tax Registration) — habilitação, token e limite de consultas por minuto de cada provedor.</description>
   <enabledynamicgrid>F</enabledynamicgrid>
   <enablekeywords>T</enablekeywords>
   <enablemailmerge>F</enablemailmerge>
@@ -35,14 +35,14 @@
       <accesslevel>2</accesslevel>
       <defaultchecked>T</defaultchecked>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o ReceitaWS é consultado como provedor primário de dados de CNPJ. Quando desmarcado, o ReceitaWS é ignorado e a consulta vai direto para a BrasilAPI (se habilitada).</help>
+      <help>Quando marcado, o ReceitaWS é consultado como provedor primário de dados de CNPJ. Quando desmarcado, o ReceitaWS é ignorado e a consulta vai direto para a Hub do Desenvolvedor (se habilitada).</help>
       <label>Habilitar ReceitaWS</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
     </customrecordcustomfield>
-    <customrecordcustomfield scriptid="custrecord_pd_petr_as_rws_token_pw">
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_rws_token_ds">
       <accesslevel>2</accesslevel>
-      <fieldtype>PASSWORD</fieldtype>
+      <fieldtype>TEXT</fieldtype>
       <help>Opcional. A consulta ao ReceitaWS funciona sem token, usando a API Pública gratuita (limitada a poucas consultas por minuto — ver campo "Limite de Consultas por Minuto"). Preencha este campo somente se houver um plano Comercial contratado junto ao ReceitaWS (maior limite de consultas). Nesse caso, ajuste também o limite de consultas por minuto conforme o plano contratado.</help>
       <label>Token ReceitaWS</label>
       <searchlevel>2</searchlevel>
@@ -52,17 +52,44 @@
       <accesslevel>2</accesslevel>
       <defaultvalue>3</defaultvalue>
       <fieldtype>INTEGER</fieldtype>
-      <help>Quantidade máxima de consultas ao ReceitaWS permitidas por minuto. Padrão 3, o limite da API Pública gratuita do ReceitaWS (sem token — ver campo "Token ReceitaWS"). Se houver um plano Comercial contratado (até 2.000 consultas/minuto), aumente este valor de acordo — caso contrário, o sistema segue limitando a 3/minuto mesmo com um plano pago. Ao atingir o limite, as consultas passam a usar a BrasilAPI (se habilitada) até a janela de 1 minuto resetar.</help>
+      <help>Quantidade máxima de consultas ao ReceitaWS permitidas por minuto. Padrão 3, o limite da API Pública gratuita do ReceitaWS (sem token — ver campo "Token ReceitaWS"). Se houver um plano Comercial contratado (até 2.000 consultas/minuto), aumente este valor de acordo — caso contrário, o sistema segue limitando a 3/minuto mesmo com um plano pago. Ao atingir o limite, as consultas passam a usar a Hub do Desenvolvedor (se habilitada) até a janela de 1 minuto resetar.</help>
       <label>Limite de Consultas por Minuto (ReceitaWS)</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
     </customrecordcustomfield>
-    <customrecordcustomfield scriptid="custrecord_pd_petr_as_bra_enabled_cb">
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_hub_enabled_cb">
       <accesslevel>2</accesslevel>
       <defaultchecked>T</defaultchecked>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, a BrasilAPI é consultada como provedor de fallback, caso o ReceitaWS esteja desabilitado, sem cota disponível, ou tenha falhado.</help>
-      <label>Habilitar BrasilAPI</label>
+      <help>Quando marcado, a Hub do Desenvolvedor é consultada como provedor de fallback, caso o ReceitaWS esteja desabilitado, sem cota disponível, ou tenha falhado. Requer o campo "Token Hub do Desenvolvedor" preenchido.</help>
+      <label>Habilitar Hub do Desenvolvedor</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_hub_token_ds">
+      <accesslevel>2</accesslevel>
+      <fieldtype>TEXT</fieldtype>
+      <help>Obrigatório para usar a Hub do Desenvolvedor. Token da conta contratada, disponível no painel da Hub (legacy.hubdodesenvolvedor.com.br/sistema). Cada consulta consome saldo dessa conta — sem token ou sem saldo, a consulta pela Hub falha e o sistema informa que nenhum provedor está disponível.</help>
+      <label>Token Hub do Desenvolvedor</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_hub_credits_nu">
+      <accesslevel>2</accesslevel>
+      <fieldtype>INTEGER</fieldtype>
+      <help>Quantidade de créditos do pacote mensal contratado na Hub do Desenvolvedor. Usada no relatório de créditos para calcular o saldo e o percentual consumido no ciclo. Ultrapassar esse valor não bloqueia as consultas, mas a Hub pode cobrar adicionalmente.</help>
+      <label>Créditos Contratados por Mês</label>
+      <minvalue>0</minvalue>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_hub_renewal_day_nu">
+      <accesslevel>2</accesslevel>
+      <fieldtype>INTEGER</fieldtype>
+      <help>Dia do mês em que o pacote de créditos da Hub do Desenvolvedor é renovado (de 1 a 28). O ciclo do relatório de créditos começa nesse dia.</help>
+      <label>Dia de Renovação do Pacote</label>
+      <maxvalue>28</maxvalue>
+      <minvalue>1</minvalue>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
     </customrecordcustomfield>

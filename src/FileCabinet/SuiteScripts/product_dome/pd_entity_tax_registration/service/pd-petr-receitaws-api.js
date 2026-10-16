@@ -3,6 +3,13 @@
  * @NModuleScope Public
  * @author Produto Dome - Mario Augusto Braga Costa
  */
+/*
+ * Token OPCIONAL: o endpoint é a API Pública (gratuita) do ReceitaWS, sem autenticação,
+ * limitada a poucas consultas/minuto (custrecord_pd_petr_as_rws_rate_limit_nu). O token só
+ * serve para o plano Comercial (mesma URL, throughput maior) — nesse caso, aumentar também o
+ * limite de consultas/minuto do registro de configuração, senão o rate limiter local
+ * continua limitando a 3/min.
+ */
 define(
     [
         'N/https',
@@ -13,14 +20,6 @@ define(
         constantsModule
     ) {
 
-        // O token é OPCIONAL: este endpoint é a API Pública (gratuita) do ReceitaWS, sem
-        // autenticação, limitada a poucas consultas/minuto (configurável em
-        // custrecord_pd_petr_as_rws_rate_limit_nu). Confirmado empiricamente (resposta traz
-        // "billing": { "free": true }) que a chamada funciona sem qualquer header de
-        // Authorization. O token só existe para quando/se o plano Comercial do ReceitaWS for
-        // contratado (mesma URL, throughput maior) — nesse caso lembrar de também aumentar o
-        // limite de consultas/minuto do registro de configuração, senão o rate limiter local
-        // continua limitando a 3/min mesmo com um plano pago de até 2000/min.
         function get(cnpj, options) {
             try {
                 var digits = String(cnpj).replace(/\D/g, '');

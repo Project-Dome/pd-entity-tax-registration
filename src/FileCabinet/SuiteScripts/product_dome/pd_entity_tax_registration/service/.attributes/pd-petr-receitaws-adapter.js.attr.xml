@@ -3,6 +3,6 @@
     <bundleable>T</bundleable>
     <description></description>
     <generateurltimestamp>F</generateurltimestamp>
-    <hideinbundle>F</hideinbundle>
+    <hideinbundle>T</hideinbundle>
     <isinactive>F</isinactive>
 </file>

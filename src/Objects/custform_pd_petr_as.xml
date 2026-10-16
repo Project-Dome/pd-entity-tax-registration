@@ -29,7 +29,7 @@ exato — CONFIRMAR com `suitecloud project:deploy dryrun` antes do deploy real.
           <quickAdd>F</quickAdd>
         </field>
         <field>
-          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_rws_token_pw]</id>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_rws_token_ds]</id>
           <label>Token ReceitaWS</label>
           <visible>T</visible>
           <mandatory>F</mandatory>
@@ -50,15 +50,45 @@ exato — CONFIRMAR com `suitecloud project:deploy dryrun` antes do deploy real.
         </field>
       </fields>
     </fieldGroup>
-    <fieldGroup scriptid="fieldgroup_pd_petr_as_bra">
-      <label>BrasilAPI</label>
+    <fieldGroup scriptid="fieldgroup_pd_petr_as_hub">
+      <label>Hub do Desenvolvedor</label>
       <visible>T</visible>
       <showTitle>T</showTitle>
       <singleColumn>F</singleColumn>
       <fields position="MIDDLE">
         <field>
-          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_bra_enabled_cb]</id>
-          <label>Habilitar BrasilAPI</label>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_hub_enabled_cb]</id>
+          <label>Habilitar Hub do Desenvolvedor</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_hub_token_ds]</id>
+          <label>Token Hub do Desenvolvedor</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_hub_credits_nu]</id>
+          <label>Créditos Contratados por Mês</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_api_settings.custrecord_pd_petr_as_hub_renewal_day_nu]</id>
+          <label>Dia de Renovação do Pacote</label>
           <visible>T</visible>
           <mandatory>F</mandatory>
           <displayType>NORMAL</displayType>

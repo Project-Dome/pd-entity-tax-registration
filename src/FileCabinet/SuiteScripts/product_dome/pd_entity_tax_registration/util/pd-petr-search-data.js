@@ -3,6 +3,14 @@
  * @NModuleScope Public
  * @author Produto Dome - Mario Augusto Braga Costa
  */
+/*
+ * Campos marcados com isCheckbox voltam da busca como string "T"/"F" (e "F" é truthy) — o
+ * mapResult normaliza para boolean.
+ *
+ * formulaFilter() monta um filtro por fórmula SQL (ex.: SUBSTR/INSTR sobre campo nativo). O
+ * N/search aceita misturar esses objetos com expressões [nome, operador, valor] no mesmo
+ * array de options.filters, unidos por "AND"/"OR".
+ */
 define(['N/search'], function (search) {
 
     function toBoolean(value) {
@@ -31,7 +39,6 @@ define(['N/search'], function (search) {
                 return;
             }
 
-            // Checkbox volta como string 'T'/'F' na busca (e 'F' é truthy) — normaliza para boolean
             if (field.isCheckbox) {
                 data[key] = toBoolean(result.getValue({ name: field.name, join: field.join, formula: field.formula }));
                 return;
@@ -76,10 +83,6 @@ define(['N/search'], function (search) {
         return results.length ? results[0] : null;
     }
 
-    // Filtro por fórmula SQL (ex. SUBSTR/INSTR sobre um campo nativo) — os filtros crus que
-    // `run`/`first` aceitam em `options.filters` são passados direto pro N/search, que aceita
-    // misturar objetos de filtro (como este) com expressões [nome, operador, valor] no mesmo
-    // array, unidos por 'AND'/'OR'.
     function formulaFilter(formula, operator, value) {
         return search.createFilter({
             name: 'formulatext',

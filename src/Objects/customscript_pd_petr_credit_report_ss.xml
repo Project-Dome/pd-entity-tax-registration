@@ -1,0 +1,24 @@
+<scheduledscript scriptid="customscript_pd_petr_credit_report_ss">
+  <description>Envia por e-mail o relatório de créditos consumidos da Hub do Desenvolvedor, conforme a frequência configurada no registro PD | PETR | Configuração das Validações. Roda diariamente; só envia quando a frequência vence. Nome sem "hub" porque customscript_pd_petr_hub_credit_report_ss passaria do limite de 40 caracteres.</description>
+  <isinactive>F</isinactive>
+  <name>PD | PETR | Credit Report SS</name>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>T</notifyowner>
+  <scriptfile>[/SuiteScripts/product_dome/pd_entity_tax_registration/scheduled/pd-petr-credit-report.sc.js]</scriptfile>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_pd_petr_credit_report_ss">
+      <isdeployed>T</isdeployed>
+      <loglevel>DEBUG</loglevel>
+      <status>SCHEDULED</status>
+      <title>PD | PETR | Credit Report SS</title>
+      <recurrence>
+        <daily>
+          <everyxdays>1</everyxdays>
+          <startdate>2026-10-08</startdate>
+          <starttime>08:00:00Z</starttime>
+        </daily>
+      </recurrence>
+    </scriptdeployment>
+  </scriptdeployments>
+</scheduledscript>

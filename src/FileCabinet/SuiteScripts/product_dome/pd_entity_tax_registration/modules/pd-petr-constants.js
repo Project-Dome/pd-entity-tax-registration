@@ -3,14 +3,26 @@
  * @NModuleScope Public
  * @author Produto Dome - Mario Augusto Braga Costa
  */
+/*
+ * CITY_LOOKUP.NAME_FORMULAS: customrecord_ftebr_city não tem campos separados de nome/UF —
+ * ambos vêm no campo nativo "name", no formato "{Cidade} - {UF}". Fórmulas portadas de
+ * pd-pcnpj-suitesuccess-city.service.js (projeto de referência pd-p-cnpj-integration), usadas
+ * quando não há código IBGE.
+ *
+ * VALIDATION_SETTINGS.FIELDS.enableStateRegLookup / enableCpfLookup: chaves propositalmente sem
+ * prefixo "update", para ficar fora do master switch "Atualizar Todos os Campos" — consultar
+ * Inscrição Estadual ou CPF na Hub precisa ser uma escolha explícita (o CPF consome créditos).
+ */
 define([], function () {
 
     return {
 
         API: {
-            CNPJ_BASE_URL: 'https://brasilapi.com.br/api/cnpj/v1/',
             CEP_BASE_URL: 'https://brasilapi.com.br/api/cep/v2/',
-            RECEITAWS_BASE_URL: 'https://receitaws.com.br/v1/cnpj/'
+            RECEITAWS_BASE_URL: 'https://receitaws.com.br/v1/cnpj/',
+            HUB_CNPJ_BASE_URL: 'https://ws.hubdodesenvolvedor.com.br/v2/cnpj/',
+            HUB_CPF_BASE_URL: 'https://ws.hubdodesenvolvedor.com.br/v2/cpf/',
+            HUB_NAME_CPF_BASE_URL: 'https://ws.hubdodesenvolvedor.com.br/v2/nome_cpf/'
         },
 
         ENTITY: {
@@ -28,12 +40,13 @@ define([], function () {
                 international: { name: 'custentity_brl_entity_t_int_tax_reg' },
                 country: { name: 'custentity_pd_petr_country_ls' },
                 companyName: { name: 'legalname' },
+                firstName: { name: 'firstname' },
                 tradeName: { name: 'companyname' },
                 phone: { name: 'phone' },
-                altPhone: { name: 'altphone' },
-                fax: { name: 'fax' },
                 email: { name: 'email' },
-                taxRegime: { name: 'custentity_fte_entity_l_taxregime' }
+                taxRegime: { name: 'custentity_fte_entity_l_taxregime' },
+                stateRegistration: { name: 'custentity_brl_entity_t_state_tx_reg' },
+                birthDate: { name: 'custentity_pd_petr_birth_date_dt' }
             },
 
             SUBLISTS: {
@@ -62,10 +75,6 @@ define([], function () {
                     internalId: { name: 'internalid' },
                     ibgeCode: { name: 'custrecord_ftebr_city_i_ibge_code' }
                 },
-                // customrecord_ftebr_city não tem campos separados de nome/UF — ambos vêm
-                // embutidos no campo nativo "name", no formato "{Cidade} - {UF}". Fórmulas
-                // portadas de pd-pcnpj-suitesuccess-city.service.js (projeto de referência
-                // pd-p-cnpj-integration), usadas quando não há código IBGE (provedor ReceitaWS).
                 NAME_FORMULAS: {
                     NAME: "LTRIM(RTRIM(SUBSTR({name}, 1, INSTR({name},'-') - 1)))",
                     UF: "LTRIM(RTRIM(SUBSTR({name}, INSTR({name}, '-') + 1, 4)))"
@@ -103,11 +112,19 @@ define([], function () {
                 enableDupIntl: { name: 'custrecord_pd_petr_vs_enable_dup_intl_cb', isCheckbox: true },
                 enableAutoLookup: { name: 'custrecord_pd_petr_vs_enable_lookup_cb', isCheckbox: true },
                 enableCnpjButton: { name: 'custrecord_pd_petr_vs_enable_cnpj_btn_cb', isCheckbox: true },
+                enableStateRegLookup: { name: 'custrecord_pd_petr_vs_hub_state_reg_cb', isCheckbox: true },
+                enableCpfLookup: { name: 'custrecord_pd_petr_vs_hub_cpf_lookup_cb', isCheckbox: true },
+                enableAutoBirthDate: { name: 'custrecord_pd_petr_vs_hub_auto_birth_cb', isCheckbox: true },
+                autoBirthDateAckAt: { name: 'custrecord_pd_petr_vs_hub_ack_at_dh' },
+                autoBirthDateAckBy: { name: 'custrecord_pd_petr_vs_hub_ack_by_ls', isSelect: true },
+                reportEmail: { name: 'custrecord_pd_petr_vs_report_email_cb', isCheckbox: true },
+                reportFrequency: { name: 'custrecord_pd_petr_vs_report_freq_ls', isSelect: true },
+                reportLastSent: { name: 'custrecord_pd_petr_vs_report_last_dt' },
+                emailSender: { name: 'custrecord_pd_petr_vs_email_sender_ls', isSelect: true },
+                emailRecipients: { name: 'custrecord_pd_petr_vs_email_recipient_ms', isMultiSelect: true },
                 updateTradeName: { name: 'custrecord_pd_petr_vs_upd_trade_name_cb', isCheckbox: true },
                 updateCompanyName: { name: 'custrecord_pd_petr_vs_upd_legal_name_cb', isCheckbox: true },
                 updatePhone: { name: 'custrecord_pd_petr_vs_upd_phone_cb', isCheckbox: true },
-                updateAltPhone: { name: 'custrecord_pd_petr_vs_upd_alt_phone_cb', isCheckbox: true },
-                updateFax: { name: 'custrecord_pd_petr_vs_upd_fax_cb', isCheckbox: true },
                 updateEmail: { name: 'custrecord_pd_petr_vs_upd_email_cb', isCheckbox: true },
                 updateTaxRegime: { name: 'custrecord_pd_petr_vs_upd_tax_regime_cb', isCheckbox: true },
                 updateAddress: { name: 'custrecord_pd_petr_vs_upd_address_cb', isCheckbox: true },
@@ -120,10 +137,39 @@ define([], function () {
             FIELDS: {
                 internalId: { name: 'internalid' },
                 rwsEnabled: { name: 'custrecord_pd_petr_as_rws_enabled_cb', isCheckbox: true },
-                rwsToken: { name: 'custrecord_pd_petr_as_rws_token_pw' },
+                rwsToken: { name: 'custrecord_pd_petr_as_rws_token_ds' },
                 rwsRateLimit: { name: 'custrecord_pd_petr_as_rws_rate_limit_nu' },
-                brasilApiEnabled: { name: 'custrecord_pd_petr_as_bra_enabled_cb', isCheckbox: true }
+                hubEnabled: { name: 'custrecord_pd_petr_as_hub_enabled_cb', isCheckbox: true },
+                hubToken: { name: 'custrecord_pd_petr_as_hub_token_ds' },
+                hubMonthlyCredits: { name: 'custrecord_pd_petr_as_hub_credits_nu' },
+                hubRenewalDay: { name: 'custrecord_pd_petr_as_hub_renewal_day_nu' }
             }
+        },
+
+        HUB_CREDIT_USAGE: {
+            TYPE: 'customrecord_pd_petr_hub_credit_usage',
+            FIELDS: {
+                internalId: { name: 'internalid' },
+                created: { name: 'created' },
+                queryType: { name: 'custrecord_pd_petr_hcu_query_type_ds' },
+                document: { name: 'custrecord_pd_petr_hcu_document_ds' },
+                credits: { name: 'custrecord_pd_petr_hcu_credits_nu' },
+                user: { name: 'custrecord_pd_petr_hcu_user_ls', isSelect: true }
+            },
+            QUERY_TYPES: {
+                CNPJ: 'CNPJ',
+                CNPJ_WITH_STATE_REGISTRATION: 'CNPJ + Inscrição Estadual',
+                CPF_HUB_DATABASE: 'CPF (base Hub)',
+                CPF_FEDERAL_REVENUE: 'CPF (Receita Federal)',
+                BIRTH_DATE: 'Data de Nascimento (nome_cpf)',
+                CPF_DATABASE_CHECK: 'Verificação de base do CPF'
+            }
+        },
+
+        REPORT_FREQUENCY: {
+            DAILY: 'Diário',
+            WEEKLY: 'Semanal',
+            MONTHLY: 'Mensal'
         },
 
         SCRIPTS: {
@@ -138,6 +184,7 @@ define([], function () {
         BUTTON: {
             ID: 'custpage_pd_petr_fetch_cnpj_bt',
             LABEL: 'Consultar CNPJ',
+            LABEL_WITH_CPF: 'Consultar CPF/CNPJ',
             FUNCTION: 'fetchCNPJ'
         }
 

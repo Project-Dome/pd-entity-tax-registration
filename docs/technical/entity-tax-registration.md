@@ -1,193 +1,283 @@
 # Entity Tax Registration (pd_entity_tax_registration) — Documentação Técnica
 
-> Versão documentada: 1.0.1 — 2026-08-03
+> Versão documentada: 2.0.0 — 2026-10-07
 
 ## 1. Visão geral
 
-Módulo `pd_entity_tax_registration` (prefixo `petr`) consolida em um único par de scripts (Client Script + User Event Script) a validação de CNPJ/CPF e Registro Fiscal Internacional, a checagem de unicidade entre entidades (Customer/Job/Vendor) e o enriquecimento automático de dados cadastrais via BrasilAPI. Substitui os projetos legados `pd_c_entity_federal-registration` (cefr) e `pd-cnpj-integration`, que atuavam sobre o mesmo campo de forma independente.
+Módulo `pd_entity_tax_registration` (prefixo `petr`) consolida a validação de CNPJ/CPF e Registro Fiscal Internacional, a checagem de unicidade entre entidades (Customer/Job/Vendor) e o enriquecimento automático de dados cadastrais. Substitui os projetos legados `pd_c_entity_federal-registration` (cefr) e `pd-cnpj-integration`, que atuavam sobre o mesmo campo de forma independente.
 
-Especificação completa: [`docs/specs/entity-tax-registration.md`](../specs/entity-tax-registration.md).
+Desde a 2.0.0 o enriquecimento usa dois provedores, sempre chamados no servidor:
 
-Status: implementado e deployado na conta `11953512` (Project Dome Do Brasil Ltda) em modo `TESTING` (ver §5.1).
+- **ReceitaWS** (`receitaws.com.br/v1/cnpj`) — provedor primário de CNPJ, API pública gratuita com limite de consultas por minuto.
+- **Hub do Desenvolvedor** (`ws.hubdodesenvolvedor.com.br/v2/`) — fallback de CNPJ, Inscrição Estadual e único provedor de CPF. Pago por créditos; cada consulta que cobra créditos é registrada para o relatório de consumo.
+
+A BrasilAPI deixou de ser usada para CNPJ na 2.0.0 e continua só na consulta de CEP (complemento de endereço).
+
+Especificações: [`entity-tax-registration.md`](../specs/entity-tax-registration.md) (módulo), [`multi-provider-cnpj-lookup.md`](../specs/multi-provider-cnpj-lookup.md) (ReceitaWS + fallback) e [`hub-credit-control.md`](../specs/hub-credit-control.md) (CPF, data de nascimento e controle de créditos).
+
+Status: implementado e deployado no sandbox `11953512-sb1` (Project Dome Do Brasil Ltda).
 
 ## 2. Arquitetura
 
-Client Script e User Event Script são pontos de entrada finos — toda a lógica de negócio vive em `service/`, orquestrada por `pd-petr-entity.js`:
+Os entry points são finos — a lógica de negócio vive em `service/`. A cadeia é dividida em duas partes que **não podem se misturar**:
+
+- **Cadeia do Client Script** (carregada no navegador): `pd-petr-entity.js` e tudo que ele importa. Não pode depender, nem transitivamente, de módulo server-only (`N/cache`, `N/record`, `N/email`) — o carregamento AMD é eager e quebraria no navegador antes de qualquer função rodar.
+- **Parte server-only**: `pd-petr-entity-lookup.js` → `pd-petr-cnpj-lookup.js` → provedores e registro de consumo. Importada só pelo RESTlet e pelos User Events.
+
+Toda consulta externa de CNPJ/CPF sai do servidor: o Client Script chama o RESTlet, que chama o orquestrador.
 
 | Arquivo | Pasta | Responsabilidade |
 |---|---|---|
 | `pd-petr-entity-tax-registration.cl.js` | `client/` | Repassa os eventos de UI (`pageInit`, `fieldChanged`, `validateField`, `saveRecord`, `fetchCNPJ`) para o service `entity`. |
-| `pd-petr-entity-tax-registration.ue.js` | `userevent/` | `beforeLoad`: adiciona o botão "Consultar CNPJ" e aponta `clientScriptModulePath`. `beforeSubmit`: roda enrichment em CSV Import, revalida unicidade em qualquer contexto. |
-| `pd-petr-entity.js` | `service/` | Orquestrador: gate por país, habilitação/obrigatoriedade dos campos, checagem de duplicidade, disparo do fetch da BrasilAPI. |
-| `pd-petr-vendor.js` | `service/` | Busca de duplicidade específica para Vendor (não usa `N/search` de `entity`, já que Vendor é um record type separado). |
+| `pd-petr-entity-tax-registration.ue.js` | `userevent/` | `beforeLoad`: adiciona o botão de consulta ("Consultar CNPJ" ou "Consultar CPF/CNPJ") e aponta `clientScriptModulePath`. `beforeSubmit`: enriquecimento em CSV Import e revalidação de unicidade. |
+| `pd-petr-entity-tax-registration.rl.js` | `restlet/` | `post` com duas ações: por `id` (modo view — carrega, preenche e salva o record) ou por `cnpj` + `birthDate` opcional (create/edit — só consulta; o cliente preenche). |
+| `pd-petr-entity.js` | `service/` | Orquestrador do lado do cliente: gate por país, habilitação/obrigatoriedade dos campos, duplicidade, chamada ao RESTlet e aplicação do retorno via mapper. |
+| `pd-petr-entity-lookup.js` | `service/` | Parte server-only do enriquecimento: `fetchCNPJForRecord` (view), `fetchCompanyDataForCnpj` (create/edit), `manageCsvImport`. |
+| `pd-petr-cnpj-lookup.js` | `service/` | Orquestrador de provedores: CNPJ (ReceitaWS → Hub) e CPF (só Hub, com fluxo de data de nascimento). Nunca lança exceção. |
+| `pd-petr-receitaws-api.js` / `pd-petr-receitaws-adapter.js` | `service/` | Chamada HTTPS ao ReceitaWS e conversão do retorno para o shape canônico. |
+| `pd-petr-hub-api.js` / `pd-petr-hub-adapter.js` | `service/` | Chamadas à Hub (`v2/cnpj`, `v2/cpf`, `v2/cpf?last_update=2`, `v2/nome_cpf`) e conversão para o shape canônico (PJ e PF). |
+| `pd-petr-hub-credit-usage.js` | `service/` | Grava uma linha de consumo por chamada que cobrou créditos (`track`) e soma o consumo de um período (`summarize`). |
+| `pd-petr-credit-report.js` | `service/` | Monta e envia o relatório de créditos por e-mail. |
+| `pd-petr-api-settings.js` | `service/` | Lê o registro de Configuração das APIs. |
+| `pd-petr-validation-settings.js` | `service/` | Lê o registro de Configuração das Validações (`get()`) e implementa a UI e o `beforeSubmit` desse registro (master switch, dependência da busca automática, ciência). |
+| `pd-petr-vendor.js` | `service/` | Busca de duplicidade específica para Vendor. |
 | `pd-petr-script-parameters.js` | `service/` | Lê o script parameter `custscript_pd_petr_brasil_country`. |
-| `pd-petr-cnpj-api.js` | `service/` | Chamada HTTPS à BrasilAPI (endpoint CNPJ). |
-| `pd-petr-cep-api.js` | `service/` | Chamada HTTPS à BrasilAPI (endpoint CEP), usada para complementar endereço. |
-| `pd-petr-validators.js` | `service/` | Checksum CNPJ/CPF (suporta o novo formato alfanumérico da Receita Federal), validação de e-mail, validação do `descricao_situacao_cadastral` da resposta da API. |
-| `pd-petr-mapper.js` | `service/` | Preenche campos nativos/custom e o `addressbook` a partir do JSON retornado pela BrasilAPI — só sobrescreve campo já preenchido no caso de Razão Social (ver §6.9); os demais só entram se estiverem vazios. |
-| `pd-petr-entity-tax-registration.rl.js` | `restlet/` | Aplica o enriquecimento server-side quando o botão é acionado em modo View (nesse modo o record no client não é editável, `setValue` falha). |
-| `pd-petr-validation-settings.js` | `service/` | Service do record de configuração: `get()` (flags que governam o módulo — ver seção 5.2) e a lógica do master switch na UI do próprio record. |
-| `pd-petr-validation-settings.cl.js` | `client/` | Client Script do record de configuração: liga/desliga os checkboxes individuais conforme o master switch. |
-| `pd-petr-constants.js` | `modules/` | Todos os fieldIds/scriptIds/tipos usados pelos services acima. |
-| `pd-petr-get-data.js` / `pd-petr-set-data.js` / `pd-petr-search-data.js` | `util/` | Utils genéricos de leitura/escrita/busca reaproveitados pelos services (portados do projeto de referência `cnab-citibank-remessa`). |
+| `pd-petr-cep-api.js` | `service/` | Chamada HTTPS à BrasilAPI (endpoint CEP), usada para complementar endereço e obter o código IBGE. |
+| `pd-petr-validators.js` | `service/` | Checksum CNPJ/CPF (inclui CNPJ alfanumérico) e validação da situação cadastral do retorno (`ATIVA` para CNPJ, `REGULAR` para CPF). |
+| `pd-petr-mapper.js` | `service/` | Preenche campos e `addressbook` a partir do shape canônico; para CPF preenche `firstname` e Data de Nascimento. |
+| `pd-petr-validation-settings.cl.js` | `client/` | Client Script do registro de Configuração das Validações. |
+| `pd-petr-validation-settings.ue.js` | `userevent/` | User Event do registro de Configuração das Validações (ciência da busca automática). |
+| `pd-petr-credit-report.sc.js` | `scheduled/` | Scheduled Script diário do relatório de créditos. |
+| `pd-petr-rate-limiter.js` | `util/` | Limite de consultas por minuto em `N/cache` (janela fixa). |
+| `pd-petr-constants.js` | `modules/` | Todos os fieldIds/scriptIds/tipos usados pelos services. |
+| `pd-petr-get-data.js` / `pd-petr-set-data.js` / `pd-petr-search-data.js` | `util/` | Utils genéricos de leitura/escrita/busca (portados de `cnab-citibank-remessa`). |
 
-Todos os arquivos estão em `src/FileCabinet/SuiteScripts/product_dome/pd_entity_tax_registration/` (o segmento `product_dome/` é a convenção de pasta-raiz para todos os módulos `pd_` da Produto Dome, análoga ao `project_dome/` usado em projetos de cliente `ds_`).
+Todos os arquivos estão em `src/FileCabinet/SuiteScripts/product_dome/pd_entity_tax_registration/`.
 
-**Fluxo no `fieldChanged` do campo CNPJ/CPF** (só quando País = Brasil): 1) valida formato (`pd-petr-validators.validateCNPJ`/`validateCPF`) → 2) valida unicidade (`findDuplicate`, via `N/search` para Customer/Job ou `pd-petr-vendor` para Vendor). Falha em qualquer das duas limpa o campo e interrompe a edição.
+### 2.1 Fluxos de validação
 
-**Fluxo no `saveRecord`** (só quando País = Brasil): 1) revalida unicidade → 2) se a consulta automática estiver habilitada, o CNPJ tiver 14 dígitos e não tiver sido consultado nesta sessão (`lastFetchedDigits`), dispara `fetchCNPJ` — o enriquecimento é gravado junto com o próprio save. O autofetch fica aqui, e não no `fieldChanged`, para que a chamada à BrasilAPI aconteça uma vez por cadastro em vez de a cada alteração do campo CNPJ.
+**`fieldChanged` do campo CNPJ/CPF** (só quando País = Brasil): 1) valida formato (`validateCNPJ`/`validateCPF`) → 2) valida unicidade (`findDuplicate`, via `N/search` para Customer/Job ou `pd-petr-vendor` para Vendor). Falha em qualquer das duas limpa o campo.
 
-**Fluxo no campo Registro Fiscal Internacional** (só quando País ≠ Brasil): só validação de unicidade, sem checksum nem chamada à BrasilAPI.
+**`saveRecord`** (só quando País = Brasil): 1) revalida unicidade → 2) se a consulta automática estiver habilitada e o documento for um CNPJ de 14 caracteres — ou um CPF de 11 com "Consultar CPF (Hub)" marcado — ainda não consultado nesta sessão (`lastFetchedDigits`), dispara `fetchCNPJ`.
 
-**Gate por país**: todo o bloco de CNPJ/CPF só roda se `custentity_pd_petr_country` (via `getValue`) for igual ao valor do script parameter `custscript_pd_petr_brasil_country` (comparação de internal ID como string).
+**Registro Fiscal Internacional** (País ≠ Brasil): só unicidade, sem checksum nem consulta externa.
+
+**Gate por país**: o bloco de CNPJ/CPF só roda se `custentity_pd_petr_country_ls` for igual ao script parameter `custscript_pd_petr_brasil_country` (internal ID comparado como string).
+
+### 2.2 Fluxo de consulta de CNPJ (`getCompanyData`)
+
+1. **ReceitaWS** (se `custrecord_pd_petr_as_rws_enabled_cb`): antes da chamada, consome uma cota do rate limiter (`custrecord_pd_petr_as_rws_rate_limit_nu` consultas/minuto). Sem cota, ou com HTTP 429, segue para a Hub marcando "rate limited".
+2. **Hub** (se `custrecord_pd_petr_as_hub_enabled_cb` e token preenchido): `v2/cnpj`, com `ie=1` quando "Consultar Inscrição Estadual (Hub)" está marcado. Erros vêm com HTTP 200 e `status: false` no corpo.
+3. ReceitaWS falhou por rate limit e Hub desabilitada → `RATE_LIMIT_NO_FALLBACK`, com o tempo restante da janela. Qualquer outra falha → `NO_PROVIDER_AVAILABLE`.
+
+### 2.3 Fluxo de consulta de CPF (`getPersonData`)
+
+Documento de 11 caracteres é desviado para `getPersonData`, que usa só a Hub e exige "Consultar CPF (Hub)" marcado (senão `CPF_LOOKUP_DISABLED`):
+
+1. `v2/cpf?last_update=2` (grátis) — `status: true` indica CPF na base da Hub.
+2. Na base → `v2/cpf` só com o CPF (1 crédito).
+3. Fora da base → a consulta na Receita exige data de nascimento:
+   1. Data de Nascimento do cadastro (`options.birthDate`) → `v2/cpf&data=DD/MM/AAAA` (5 créditos).
+   2. Sem data e com "Busca Automática de Data de Nascimento (Hub)" marcada → `v2/nome_cpf` (10 créditos) e depois `v2/cpf` com a data (5).
+   3. Sem data e sem a flag → `BIRTH_DATE_REQUIRED`, sem gastar créditos.
+4. O retorno (`tipo_pessoa: 'PF'`) leva `data_nascimento`, gravada pelo mapper em `custentity_pd_petr_birth_date_dt` se o campo estiver vazio.
+
+A data do cadastro chega em todos os caminhos: create/edit (o Client Script envia `birthDate` ao RESTlet), view (`fetchCNPJForRecord` lê do record carregado) e CSV Import (`manageCsvImport` lê do `newRecord`).
+
+### 2.4 Registro de consumo e relatório
+
+`creditUsageService.track(body, queryType, document)` é chamado após toda chamada à Hub (em `tryHub` e em `callHub`) e grava uma linha em `customrecord_pd_petr_hub_credit_usage` quando `body.consumed > 0`. Tipos registrados: `CNPJ`, `CNPJ + Inscrição Estadual`, `CPF (base Hub)`, `CPF (Receita Federal)`, `Data de Nascimento (nome_cpf)` e `Verificação de base do CPF` (só grava se a Hub passar a cobrar o `last_update`).
+
+O Scheduled Script `customscript_pd_petr_credit_report_ss` roda diariamente e chama `creditReportService.run()`, que envia o relatório quando a frequência vence (ver §5.4).
 
 ## 3. Objects (`src/Objects/`)
 
 | scriptid | Tipo | Descrição |
 |---|---|---|
-| `custentity_pd_petr_country_ls` | `entitycustomfield` (SELECT, `selectrecordtype=-159` / País) | Campo País em Customer/Vendor. Obrigatório (`ismandatory=T`), label "País". Renomeado do prefixo antigo `cefr` para `petr` e, na 1.0.1, para o sufixo de tipo `_ls` (List/Record) — o campo nunca havia sido deployado em produção. |
-| `customrecord_pd_petr_validation_settings` | `customrecordtype` | Registro único de configuração (nome de exibição `PD \| PETR \| Configuração das Validações`), com os 13 campos checkbox inline. Ver seção 5.2. |
-| `custform_pd_petr_vs` | `entryForm` | Formulário de entrada do record de configuração, campos agrupados em Field Groups. `standard="STANDARDCUSTOMRECORD_PD_PETR_VALIDATION_SETTINGSFORM"`. |
-| `customsearch_pd_petr_vs_list` | `savedsearch` | Saved search de listagem do record de configuração. Criada na UI com ID customizado e trazida via `object:import`. |
-| `customscript_pd_petr_tax_reg_ue` | `usereventscript` | User Event, 2 deployments ativos + 1 desativado (ver §4) e 1 script parameter (`custscript_pd_petr_brasil_country`). |
-| `customscript_pd_petr_tax_reg_cl` | `clientscript` | Client Script principal, 3 deployments. Criado na 1.0.1 — antes o script só era anexado dinamicamente via `form.clientScriptModulePath`. |
-| `customscript_pd_petr_tax_reg_rl` | `restlet` | RESTlet que aplica o enriquecimento server-side quando o botão é acionado em modo View. |
-| `customscript_pd_petr_vs_cl` | `clientscript` | Client Script do master switch, deployado no próprio record de configuração. |
+| `custentity_pd_petr_country_ls` | `entitycustomfield` (SELECT, País) | Campo País em Customer/Vendor. Obrigatório, label "País". |
+| `custentity_pd_petr_birth_date_dt` | `entitycustomfield` (DATE) | "Data de Nascimento" em Customer/Vendor. Arquivo em `pd_petr/custom_field/`. |
+| `customrecord_pd_petr_api_settings` | `customrecordtype` | "PD \| PETR \| Configuração das APIs" — provedores, tokens e pacote de créditos. Ver §5.3. |
+| `custform_pd_petr_as` | `entryForm` | Form do registro de APIs (grupos "ReceitaWS", "Hub do Desenvolvedor", "Informações do Sistema"). |
+| `customrecord_pd_petr_validation_settings` | `customrecordtype` | "PD \| PETR \| Configuração das Validações". Ver §5.2. |
+| `custform_pd_petr_vs` | `entryForm` | Form do registro de Validações (grupos "Validação de Duplicidade", "Consulta na Receita", "Atualização de Campos via Receita", "Relatório de Créditos da Hub", "Informações do Sistema"). |
+| `customsearch_pd_petr_vs_list` | `savedsearch` | Listagem do registro de Validações. |
+| `customrecord_pd_petr_hub_credit_usage` | `customrecordtype` | "PD \| PETR \| Consumo de Créditos da Hub" — campos `custrecord_pd_petr_hcu_query_type_ds`, `_document_ds`, `_credits_nu`, `_user_ls`; data = `created` nativo. `accesstype` `NONENEEDED`. Arquivo em `pd_petr/custom_record/`. |
+| `customlist_pd_petr_report_frequency` | `customlist` | "PD \| PETR \| Freq. do Relatório": Diário, Semanal, Mensal. Arquivo em `pd_petr/custom_list/`. |
+| `customscript_pd_petr_tax_reg_ue` | `usereventscript` | User Event das entidades; script parameter `custscript_pd_petr_brasil_country`. |
+| `customscript_pd_petr_tax_reg_cl` | `clientscript` | Client Script principal. |
+| `customscript_pd_petr_tax_reg_rl` | `restlet` | RESTlet de consulta. |
+| `customscript_pd_petr_vs_cl` | `clientscript` | Client Script do registro de Validações. |
+| `customscript_pd_petr_vs_ue` | `usereventscript` | User Event do registro de Validações. |
+| `customscript_pd_petr_credit_report_ss` | `scheduledscript` | Relatório de créditos. Nome sem "hub": `customscript_pd_petr_hub_credit_report_ss` passaria de 40 caracteres. |
 
-Campos usados pelo módulo mas **não recriados** neste projeto (pertencem a outros bundles — ver spec §9): `custentity_brl_entity_t_fed_tax_reg`, `custentity_brl_entity_t_int_tax_reg`, `custentity_fte_entity_l_taxregime` (bundle "brl"/FTE Brazil Localization), `customrecord_ftebr_city`, `customrecord_fte_taxregime`.
+Os Objects criados na 2.0.0 (custom field, custom record e custom list) estão em subpastas `src/Objects/pd_petr/{categoria}/`; os anteriores e os `customscript_*.xml` continuam soltos em `src/Objects/`.
+
+Campos usados mas **não recriados** neste projeto (pertencem a outros bundles): `custentity_brl_entity_t_fed_tax_reg`, `custentity_brl_entity_t_int_tax_reg`, `custentity_brl_entity_t_state_tx_reg` (Inscrição Estadual), `custentity_fte_entity_l_taxregime`, `customrecord_ftebr_city`, `customrecord_fte_taxregime`.
 
 ## 4. Scripts e deployments
 
 | Script | Tipo | scriptid | Deployment(s) | Record type | Status |
 |---|---|---|---|---|---|
-| `pd-petr-entity-tax-registration.ue.js` | User Event Script | `customscript_pd_petr_tax_reg_ue` | `customdeploy_pd_petr_tax_reg_ue_customer` | `CUSTOMER` | RELEASED |
+| `pd-petr-entity-tax-registration.ue.js` | User Event | `customscript_pd_petr_tax_reg_ue` | `customdeploy_pd_petr_tax_reg_ue_customer` | `CUSTOMER` | RELEASED |
 | | | | `customdeploy_pd_petr_tax_reg_ue_job` | `[scriptid=customrecord_str_job]` | **comentado no Object** |
 | | | | `customdeploy_pd_petr_tax_reg_ue_vendor` | `VENDOR` | RELEASED |
 | `pd-petr-entity-tax-registration.cl.js` | Client Script | `customscript_pd_petr_tax_reg_cl` | `customdeploy_pd_petr_tax_reg_cl_customer` | `CUSTOMER` | RELEASED |
-| | | | `customdeploy_pd_petr_tax_reg_cl_job` | `JOB` | **isdeployed=F — não implementado** |
+| | | | `customdeploy_pd_petr_tax_reg_cl_job` | `JOB` | **isdeployed=F** |
 | | | | `customdeploy_pd_petr_tax_reg_cl_vendor` | `VENDOR` | RELEASED |
 | `pd-petr-entity-tax-registration.rl.js` | RESTlet | `customscript_pd_petr_tax_reg_rl` | `customdeploy_pd_petr_tax_reg_rl` | — | RELEASED |
 | `pd-petr-validation-settings.cl.js` | Client Script | `customscript_pd_petr_vs_cl` | `customdeploy_pd_petr_vs_cl` | `[scriptid=customrecord_pd_petr_validation_settings]` | RELEASED |
+| `pd-petr-validation-settings.ue.js` | User Event | `customscript_pd_petr_vs_ue` | `customdeploy_pd_petr_vs_ue` | `[scriptid=customrecord_pd_petr_validation_settings]` | RELEASED |
+| `pd-petr-credit-report.sc.js` | Scheduled | `customscript_pd_petr_credit_report_ss` | `customdeploy_pd_petr_credit_report_ss` | — | SCHEDULED (diário, 08:00 UTC, desde 08/10/2026) |
 
-**O deployment de Job do User Event está comentado**, junto com a dependência `<object>customrecord_str_job</object>` em `src/manifest.xml`. `customrecord_str_job` é custom record de um projeto de cliente (prefixo `str`) e não existe nas contas em que o produto é instalado — exigi-lo tornaria o bundle não-instalável. Para reativar, confirme que a conta-alvo tem o record e restaure os dois pontos juntos.
+**O deployment de Job do User Event está comentado**, junto com a dependência `<object>customrecord_str_job</object>` em `src/manifest.xml`: `customrecord_str_job` é custom record de um projeto de cliente e não existe nas contas em que o produto é instalado. Para reativar, confirme que a conta-alvo tem o record e restaure os dois pontos juntos. O Job nativo também está sem cobertura (`customdeploy_pd_petr_tax_reg_cl_job` com `isdeployed=F`). Se reativar, atenção ao `<recordtype>`: no User Event é `[scriptid=customrecord_str_job]`, no Client Script é a constante nativa `JOB` — não são intercambiáveis.
 
-O **Job nativo** também está sem cobertura agora: `customdeploy_pd_petr_tax_reg_cl_job` está com `isdeployed=F` — o deployment existe no Object mas não está ativo na conta. Módulo não roda em Job nativo nem em `customrecord_str_job` neste momento.
+O Client Script principal também é anexado via `form.clientScriptModulePath` no `beforeLoad` do User Event.
 
-Atenção ao `<recordtype>` do contexto Job, se o deployment for reativado: no User Event ele é `[scriptid=customrecord_str_job]` (custom record de terceiro), enquanto no Client Script é a constante nativa `JOB`. Não são intercambiáveis — não uniformize um pelo outro.
+Audiência de todos os deployments: `allemployees=T`, `allpartners=T`, `allroles=T`.
 
-O Client Script principal continua sendo anexado via `form.clientScriptModulePath` no `beforeLoad` do User Event, além de ter Object próprio desde a 1.0.1.
-
-Audiência de todos os deployments: `allemployees=T`, `allpartners=T`, `allroles=T` (acesso liberado a todos os roles — sem Object de deployment restritivo).
-
-Todos os arquivos `.js` têm seu `.attributes/{arquivo}.attr.xml` e todas as pastas do módulo têm seu `.attributes/.folder.attr.xml`. **O módulo já está com os flags de bundle aplicados:** todas as pastas e todos os arquivos em `bundleable=T`, e `hideinbundle=T` apenas nos dois arquivos que nenhum Client Script alcança — o User Event e o RESTlet.
-
-Todo o restante fica em `hideinbundle=F` por obrigação, não por escolha: **o Client Script e toda a cadeia de módulos que ele importa, direta ou transitivamente, não podem ser ocultados**. O NetSuite carrega essa árvore inteira no navegador, e qualquer arquivo dela com `hideinbundle=T` faz o deploy falhar com `INVALID_HIDE_IN_BUNDLE_PREFERENCE_SET_FOR_REFERENCED_LIBRARY_FILE`. Hoje a cadeia inclui, além dos dois Client Scripts, os services `entity`, `vendor`, `validators`, `cnpj-api`, `cep-api`, `mapper`, `script-parameters` e `validation-settings`, mais `modules/constants` e os três utils — ou seja, 14 dos 16 arquivos.
-
-`hideinbundle` não existe para pastas, só para arquivos. E essa análise precisa ser refeita a cada import novo: acrescentar um módulo ao `define([...])` de um arquivo que já está na cadeia puxa esse módulo — e tudo que ele importa — para dentro dela.
+**Flags de bundle.** Todas as pastas e arquivos têm `bundleable=T`. `hideinbundle=T` só nos quatro entry points server-side (os dois User Events, o RESTlet e o Scheduled Script). A cadeia do Client Script **não pode** ser ocultada — qualquer arquivo dela com `hideinbundle=T` faz o deploy falhar com `INVALID_HIDE_IN_BUNDLE_PREFERENCE_SET_FOR_REFERENCED_LIBRARY_FILE`. Hoje ela tem 13 arquivos: os dois Client Scripts, os services `entity`, `script-parameters`, `vendor`, `validators`, `mapper`, `cep-api` e `validation-settings`, `modules/constants` e os três utils de dados. Os services server-only (`entity-lookup`, `cnpj-lookup`, `receitaws-*`, `hub-*`, `api-settings`, `credit-report`, `hub-credit-usage`) e o `rate-limiter` estão com `hideinbundle=F` sem obrigação — podem passar a `T`. A análise precisa ser refeita a cada import novo num arquivo da cadeia.
 
 ## 5. Configuração dependente de ambiente
 
-### 5.1 Script parameter e deployment
+### 5.1 Script parameter
 
-- **`custscript_pd_petr_brasil_country`**: internal ID do registro de País "Brasil" nesta conta NetSuite. Tem `<setting>COMPANY</setting>` no Object (`customscript_pd_petr_tax_reg_ue.xml`), então o NetSuite o expõe como **preferência de empresa** — configurável em **Configuração > Empresa > Preferências Gerais > Preferências Personalizadas**, não por deployment. Por isso a tag `<custscript_pd_petr_brasil_country>` vem vazia dentro de cada `<scriptdeployment>` (Customer/Vendor): o valor não vive ali, vive uma vez só, no nível da conta. O código lê da mesma forma independente do `<setting>` — `runtime.getCurrentScript().getParameter({ name: ... })` em `pd-petr-script-parameters.js` — só o local onde o admin preenche o valor muda.
-- **Precisa ser preenchido manualmente em cada conta/ambiente** onde o módulo for instalado — não tem valor default no código. Sem esse parâmetro preenchido, `getCountryBrazil()` retorna vazio e `isBrazil(country)` nunca é `true`, ou seja, todo o bloco de CNPJ/CPF (checksum + enrichment) fica desativado e o módulo se comporta como se toda entidade fosse estrangeira.
-- **Deployment status = `RELEASED`** nos 6 deployments ativos (2 do User Event, 2 do Client Script principal — Customer e Vendor —, 1 do RESTlet, 1 do Client Script de configuração). O deployment de Job do Client Script (`customdeploy_pd_petr_tax_reg_cl_job`) existe no Object mas está com `isdeployed=F` — não implementado.
+- **`custscript_pd_petr_brasil_country`**: internal ID do registro de País "Brasil". Tem `<setting>COMPANY</setting>`, então é preenchido em **Configuração > Empresa > Preferências Gerais > Preferências Personalizadas**, não por deployment. Lido por `runtime.getCurrentScript().getParameter` em `pd-petr-script-parameters.js`.
+- **Obrigatório em cada conta**: sem ele, `isBrazil(country)` nunca é `true` e todo o bloco de CNPJ/CPF fica desativado.
 
-### 5.2 Record de configuração das validações
+### 5.2 Registro de Configuração das Validações
 
-`customrecord_pd_petr_validation_settings` ("PD | PETR | Configuração das Validações") é o registro **único** de configuração do módulo: 13 checkboxes que decidem, por conta, quais validações e quais gravações automáticas o módulo executa. É o que permite o mesmo bundle atender clientes com regras diferentes sem alteração de código.
+`customrecord_pd_petr_validation_settings` é o registro **único** de configuração das validações e consultas. `validationSettingsService.get()` é o único ponto de leitura (busca via `pd-petr-search-data.first`, `isinactive = F`), memoizado por execução — ver §6.2. Sem registro ativo, `get()` devolve `null` e nenhuma validação nem enriquecimento roda:
 
-**Leitura — `validationSettingsService.get()`.** Nenhum outro arquivo lê esse record direto; todos consomem o objeto de booleans devolvido por essa função (busca via `pd-petr-search-data.first`, filtro `isinactive = F`). A configuração é lida **uma vez por carregamento de página**, ou uma vez por execução server-side: alteração feita no record só passa a valer na próxima carga de tela — ver §6.2.
-
-**Criar o registro é pré-requisito de funcionamento**, não opt-out. `get()` devolve `null` quando não há registro ativo na conta, e nesse estado nenhuma validação e nenhum enriquecimento é executado.
-
-Comportamento de cada ponto de entrada quando `get()` devolve `null`:
-
-| Ponto | O que acontece |
+| Ponto | Sem configuração |
 |---|---|
-| `manageCnpjChanged` / `manageInternationalChanged` (`fieldChanged`) | Só `log.debug`. **Sem alerta**, deliberadamente — alertar a cada mudança de campo seria intrusivo. |
-| `manageSaveRecord` | `dialog.alert` com título "Configuração necessária" e `return true` — **o save não é bloqueado**, o cadastro grava sem validação. |
-| `fetchCNPJ` (botão, modo Create/Edit) | `dialog.alert` e aborta a consulta. |
-| `fetchCNPJViaRestlet` (botão, modo View) | Devolve `{ success: false, error: MISSING_SETTINGS_MESSAGE }`. |
-| `manageBeforeSubmitServer` | `log.error` e retorna — revalidação server-side não roda. |
-| `manageCsvImport` | `log.error` e retorna — enriquecimento via CSV Import não roda. |
+| `manageCnpjChanged` / `manageInternationalChanged` | Só `log.debug`, sem alerta. |
+| `manageSaveRecord` | `dialog.alert` "Configuração necessária"; o save **não** é bloqueado. |
+| `fetchCNPJ` (create/edit) | `dialog.alert` e aborta. |
+| `fetchCNPJViaRestlet` (view) | `{ success: false, error: MISSING_SETTINGS_MESSAGE }`. |
+| `manageBeforeSubmitServer` / `manageCsvImport` | `log.error` e retorna. |
+| `getPersonData` | `CPF_LOOKUP_DISABLED` (sem flag de CPF). |
+| `creditReportService.run` | Log e não envia. |
 
-O botão "Consultar CNPJ" continua visível quando não há configuração (`shouldShowCnpjButton = !settings || settings.enableCnpjButton`, em `beforeLoad`): é ao clicar nele que o usuário recebe o aviso para criar o registro.
+Flags e onde são aplicadas:
 
-**Master switch.** "Atualizar Todos os Campos" (`custrecord_pd_petr_vs_upd_all_cb`) atua em dois lugares independentes: na UI do próprio record, o Client Script `pd-petr-validation-settings.cl.js` zera e desabilita os 8 checkboxes individuais (guardando os valores anteriores para restaurar se o master for desmarcado); na leitura, o `get()` resolve o master devolvendo as 8 flags individuais como `true` — ver §6.6.
-
-**Onde cada flag é aplicada** (o porquê de ser sempre no service está em §6.4):
-
-| Flag | Ponto de aplicação |
+| Flag (fieldId) | Ponto de aplicação |
 |---|---|
-| Validar Duplicidade (CNPJ/CPF Nacional) | `pd-petr-entity`: `manageCnpjChanged`, `manageSaveRecord`, `manageBeforeSubmitServer` |
-| Validar Duplicidade (Registro Internacional) | `pd-petr-entity`: `manageInternationalChanged`, `manageSaveRecord`, `manageBeforeSubmitServer` |
-| Consulta Automática de CNPJ na Receita | `pd-petr-entity`: autofetch do `manageSaveRecord` e `manageCsvImport` |
-| Botão "Consultar CNPJ" | `pd-petr-entity-tax-registration.ue`: `beforeLoad` |
-| 8 flags de atualização de campo | `pd-petr-mapper.setFields`: cada `setValue` e o `insertAddress` |
+| Validar Duplicidade (CNPJ/CPF Nacional) — `custrecord_pd_petr_vs_enable_dup_cnpj_cb` | `pd-petr-entity`: `manageCnpjChanged`, `manageSaveRecord`, `manageBeforeSubmitServer` |
+| Validar Duplicidade (Registro Internacional) — `custrecord_pd_petr_vs_enable_dup_intl_cb` | `pd-petr-entity`: `manageInternationalChanged`, `manageSaveRecord`, `manageBeforeSubmitServer` |
+| Consulta Automática de CPF/CNPJ — `custrecord_pd_petr_vs_enable_lookup_cb` | autofetch do `manageSaveRecord` e `manageCsvImport` |
+| Botão "Consultar CPF/CNPJ" — `custrecord_pd_petr_vs_enable_cnpj_btn_cb` | `pd-petr-entity-tax-registration.ue`: `beforeLoad` |
+| Consultar Inscrição Estadual (Hub) — `custrecord_pd_petr_vs_hub_state_reg_cb` | `pd-petr-cnpj-lookup.tryHub` (`ie=1`) e `pd-petr-mapper.setFields` |
+| Consultar CPF (Hub) — `custrecord_pd_petr_vs_hub_cpf_lookup_cb` | `getPersonData`, autofetch/CSV para 11 caracteres, rótulo do botão (`BUTTON.LABEL_WITH_CPF`) |
+| Busca Automática de Data de Nascimento (Hub) — `custrecord_pd_petr_vs_hub_auto_birth_cb` | `getPersonData` (chamada ao `v2/nome_cpf`) |
+| 6 flags `custrecord_pd_petr_vs_upd_*_cb` | `pd-petr-mapper.setFields` |
 
-**Objects relacionados:** `customrecord_pd_petr_validation_settings` (record + os 13 campos inline), `custform_pd_petr_vs` (Entry Form, campos agrupados em Field Groups), `customsearch_pd_petr_vs_list` (saved search de listagem) e `customscript_pd_petr_vs_cl` (deployment do Client Script do master switch).
+**Busca automática de data de nascimento** (`pd-petr-validation-settings.js`): no cliente, fica desabilitada e desmarcada enquanto "Consultar CPF (Hub)" estiver desmarcado (`applyCpfDependency`); ao ser marcada, abre `dialog.create` com "Estou ciente"/"Cancelar" — Cancelar desmarca. No servidor, `manageBeforeSubmit` (User Event `customscript_pd_petr_vs_ue`) repete a dependência e, quando a flag passa de desmarcada para marcada, grava `custrecord_pd_petr_vs_hub_ack_at_dh` (data/hora) e `custrecord_pd_petr_vs_hub_ack_by_ls` (usuário). Desmarcar mantém a última ciência.
+
+**Master switch.** "Atualizar Todos os Campos" (`custrecord_pd_petr_vs_upd_all_cb`) zera e desabilita os 6 checkboxes individuais na UI e, na leitura, `get()` devolve as 6 flags como `true`. Só chaves de `VALIDATION_SETTINGS.FIELDS` que começam com `update` são afetadas — por isso `enableStateRegLookup`, `enableCpfLookup` e `enableAutoBirthDate` têm outro prefixo: são opções da Hub que precisam ser escolhidas individualmente (as de CPF consomem créditos) e não podem ser ligadas pelo master.
+
+### 5.3 Registro de Configuração das APIs
+
+`customrecord_pd_petr_api_settings`, lido por `apiSettingsService.get()` (mesma regra de `null` não cacheado):
+
+| Campo | fieldId | Uso |
+|---|---|---|
+| Habilitar ReceitaWS | `custrecord_pd_petr_as_rws_enabled_cb` | Liga o provedor primário de CNPJ. |
+| Token ReceitaWS | `custrecord_pd_petr_as_rws_token_ds` | Opcional (só plano Comercial). |
+| Limite de Consultas por Minuto (ReceitaWS) | `custrecord_pd_petr_as_rws_rate_limit_nu` | Cota do rate limiter (padrão 3, limite da API pública). |
+| Habilitar Hub do Desenvolvedor | `custrecord_pd_petr_as_hub_enabled_cb` | Liga a Hub (fallback de CNPJ, IE e CPF). |
+| Token Hub do Desenvolvedor | `custrecord_pd_petr_as_hub_token_ds` | Obrigatório para a Hub; vai na query string. |
+| Créditos Contratados por Mês | `custrecord_pd_petr_as_hub_credits_nu` | Base de saldo/percentual/excedente do relatório. Vazio: relatório só mostra o consumo. |
+| Dia de Renovação do Pacote | `custrecord_pd_petr_as_hub_renewal_day_nu` | Início do ciclo (1–28). Vazio: dia 1. |
+
+### 5.4 Relatório de créditos
+
+Campos no registro de Validações, grupo "Relatório de Créditos da Hub": `custrecord_pd_petr_vs_report_email_cb` (liga o envio), `custrecord_pd_petr_vs_report_freq_ls` (Diário/Semanal/Mensal), `custrecord_pd_petr_vs_report_last_dt` (gravado pelo script), `custrecord_pd_petr_vs_email_sender_ls` (funcionário autor) e `custrecord_pd_petr_vs_email_recipient_ms` (funcionários destinatários).
+
+`creditReportService.run()` só envia com o envio ligado, remetente, ao menos um destinatário e frequência vencida — Diário: último envio antes de hoje; Semanal: 7 dias ou mais; Mensal: 1 mês ou mais; sem último envio, envia. O ciclo começa no dia de renovação do mês corrente (ou do anterior, se o dia ainda não chegou). O e-mail traz período, contratado, consumido, saldo, percentual, excedente (quando houver) e consumo por tipo de consulta.
 
 ## 6. Decisões de implementação
 
 ### 6.1 Autofetch no `saveRecord`, não no `fieldChanged`
 
-A consulta automática à BrasilAPI é disparada em `manageSaveRecord`. No `fieldChanged` ela aconteceria a cada alteração do campo CNPJ — e o `lastFetchedDigits` só evita a repetição do *mesmo* valor já consultado, não as chamadas de valores intermediários. No save é uma chamada por cadastro.
-
-Consequência a conhecer: em modo edição os campos só são preenchidos **depois** de salvar. Para ver os dados antes disso existe o botão "Consultar CNPJ".
+A consulta automática é disparada em `manageSaveRecord`: no `fieldChanged` aconteceria a cada alteração do campo, e `lastFetchedDigits` só evita repetir o mesmo valor. Consequência: em edição, os campos só são preenchidos depois de salvar — para vê-los antes existe o botão de consulta.
 
 ### 6.2 Configuração memoizada, `null` deliberadamente não cacheado
 
-`get()` guarda o resultado numa variável de módulo (`cachedSettings`). Como as flags são consultadas dentro de `fieldChanged`/`saveRecord`, sem memoização haveria uma busca por interação do usuário.
+`get()` guarda o resultado numa variável de módulo para não buscar o registro a cada interação. O `null` não é cacheado: registro criado durante a sessão passa a valer na chamada seguinte. Mesmo padrão em `pd-petr-api-settings.get()`.
 
-O `null` (nenhum registro ativo na conta) **não** é cacheado, de propósito: registro criado durante a sessão passa a valer na chamada seguinte, sem exigir recarga da página. Cachear o `null` economizaria uma busca e criaria um estado morto até o próximo F5.
+### 6.3 Normalização de checkbox e multiselect no util
 
-### 6.3 Normalização de checkbox no util, não no service
-
-Os 13 campos estão marcados com `isCheckbox: true` em `pd-petr-constants.js`, e é o `mapResult` do `pd-petr-search-data` que converte o retorno da busca (string `'T'`/`'F'`) para boolean. Sem isso `'F'` seria *truthy* e toda flag desmarcada leria como habilitada. A conversão fica no util para que qualquer service futuro que leia checkbox herde o tratamento — resolver no service cobriria só este caso.
+`pd-petr-search-data.mapResult` converte `isCheckbox` (`'T'`/`'F'` → boolean; `'F'` seria truthy) e `isMultiSelect` (texto separado por vírgula → array). A conversão fica no util para qualquer service herdar.
 
 ### 6.4 Flags aplicadas no service, nunca no util
 
-Cada flag é testada no ponto de decisão do service (tabela em §5.2). Os utils de acesso a dados seguem genéricos, sem conhecimento da configuração deste módulo — é o que os mantém portáveis entre projetos, e o motivo de viverem em `util/` e não em `service/`.
+Cada flag é testada no ponto de decisão do service (tabela em §5.2); os utils seguem genéricos e portáveis.
 
 ### 6.5 Save não bloqueado quando falta configuração
 
-Sem registro de configuração, `manageSaveRecord` alerta e deixa o save prosseguir, e `manageBeforeSubmitServer` só registra `log.error`. **Parece bug e é intencional:** bloquear cadastro por falta de um registro de setup deixaria a conta inoperante logo após a instalação do bundle.
-
-O preço é que cadastros podem ser gravados com CNPJ duplicado nesse intervalo, tendo um `log.error` como único rastro. Se algum cliente não aceitar esse risco, a mudança é em `manageSaveRecord`/`manageBeforeSubmitServer` — não na configuração.
+Intencional: bloquear cadastro por falta de setup deixaria a conta inoperante logo após a instalação. O preço é que cadastros podem ser gravados sem validação nesse intervalo, com um `log.error` como rastro.
 
 ### 6.6 Master switch resolvido na leitura
 
-`get()` já devolve as 8 flags individuais como `true` quando o master está marcado, em vez de expor o master a quem consome. Nenhum service precisa saber que "Atualizar Todos os Campos" existe, e acrescentar uma 9ª flag de campo não exige tocar em nenhum ponto de decisão.
+`get()` já devolve as 6 flags individuais como `true` quando o master está marcado — nenhum service precisa saber que ele existe.
 
 ### 6.7 CSV Import governado pela flag "Consulta Automática"
 
-`manageCsvImport` respeita a mesma flag usada pelo `saveRecord`. Deixar o CSV enriquecendo enquanto a consulta automática está desligada seria incoerente. Se a distinção importar para algum cliente, o certo é criar um checkbox novo em vez de reinterpretar o existente.
+`manageCsvImport` respeita a mesma flag do `saveRecord`, inclusive para CPF (que também exige "Consultar CPF (Hub)").
 
-### 6.8 Checksum de CNPJ/CPF sempre ativo, sem flag
+### 6.8 Checksum de CNPJ/CPF sempre ativo
 
-As flags de duplicidade governam a checagem de *unicidade na base*, não a de dígito verificador. Gravar um CNPJ matematicamente inválido não é comportamento que faça sentido oferecer como opção, então a validação de formato roda independente de configuração — inclusive quando `get()` devolve `null`.
+As flags de duplicidade governam a unicidade na base, não o dígito verificador — esse roda sempre, mesmo sem configuração.
 
-### 6.9 Enriquecimento só sobrescreve campo preenchido para Razão Social
+### 6.9 Enriquecimento só sobrescreve Razão Social e nome do CPF
 
-`pd-petr-mapper.setIfEmpty` grava só quando o campo está vazio, e é isso que rege telefone, telefone alternativo, fax, e-mail, regime tributário, nome fantasia e endereço. **Trocar o CNPJ de um cadastro existente e salvar não substitui esses campos pelos da nova empresa**, porque eles já não estão vazios — o enriquecimento é complemento de cadastro, não sincronização contínua com a Receita.
-
-**Razão Social (`companyname`) é a única exceção**, e é gravada direto com `setValue`, sem passar por `setIfEmpty` — sempre reflete o retorno da Receita, mesmo substituindo um valor já preenchido manualmente. A justificativa: `companyname` é o nome exibido em listas, buscas e documentos na conta inteira, então não faz sentido essa referência ficar desatualizada em relação ao que a Receita tem — diferente de telefone/e-mail/endereço, que são dados de contato onde o valor digitado por uma pessoa tem prioridade sobre o da API.
+`setIfEmpty` rege telefone, e-mail, regime tributário, nome fantasia, endereço, Inscrição Estadual e Data de Nascimento. **Razão Social (`companyname`)** e, no CPF, **`firstname`** são gravados direto — sempre refletem a Receita, por serem o nome exibido em toda a conta.
 
 ### 6.10 Endereço só é acrescentado, comparando por CEP
 
-`insertAddress` insere linha nova no `addressbook` apenas quando nenhuma linha existente tem o mesmo CEP. A manipulação do subrecord é envolvida em `try/catch` que loga e segue: falha no endereço não pode abortar o save do cadastro, porque endereço é enriquecimento e não dado obrigatório.
+`insertAddress` insere linha nova no `addressbook` só quando nenhuma linha existente tem o mesmo CEP. Falha no subrecord é logada e devolve um aviso ("Endereço não preenchido"/"Endereço incompleto") em vez de abortar o save.
+
+### 6.11 Cidade sem código IBGE
+
+Nenhum provedor de CNPJ atual devolve IBGE. `resolveCityInternalId` usa o IBGE da consulta de CEP (BrasilAPI, `ibge.city`) e, sem ele, `lookupCityInternalIdByNameAndUf`: filtro por UF + 1ª letra via fórmula sobre o `name` de `customrecord_ftebr_city` ("{Cidade} - {UF}", `ENTITY.CITY_LOOKUP.NAME_FORMULAS`) e comparação exata em JS sem acento e caixa.
+
+### 6.12 Rate limiter do ReceitaWS em `N/cache`, janela fixa
+
+Cada minuto é um bucket com chave própria. `N/cache` exige ttl ≥ 300 s (não afeta a contagem) e não é transacional — em concorrência alta pode passar 1 chamada além do limite; o HTTP 429 do provedor é a rede de segurança. `consume()` nunca lança: falha do cache libera a chamada.
+
+### 6.13 Consulta sempre no servidor
+
+O Client Script não chama nenhuma API externa: tokens ficam no servidor e o rate limiter/registro de consumo (server-only) cobrem todas as consultas. O preço é a separação `pd-petr-entity.js` (cliente) / `pd-petr-entity-lookup.js` (servidor) descrita em §2.
+
+### 6.14 Data de nascimento em DD/MM/AAAA montada no navegador
+
+O Client Script envia `birthDate` já formatado com o fuso do navegador (`formatBirthDate`): serializar o `Date` em JSON viraria ISO em UTC e poderia trocar o dia. No servidor, `toHubDate` aceita `Date`, ISO e DD/MM/AAAA.
+
+### 6.15 Registro de consumo com `NONENEEDED` e falha silenciosa
+
+A linha de consumo é gravada pelo RESTlet/User Event com o papel do usuário que consultou; com permissão por registro, um usuário sem acesso faria a gravação falhar. `track` nunca lança — falha ao gravar o consumo não interrompe a consulta. O valor gravado é o `consumed` devolvido pela Hub, não uma tabela de preços local.
+
+### 6.16 Relatório com busca própria
+
+`pd-petr-credit-report` lê o registro de Validações com busca própria porque `get()` descarta o `internalid`, necessário para gravar "Último Envio". A frequência é comparada pelo texto do valor da lista (`REPORT_FREQUENCY`).
 
 ## 7. Limitações e fora de escopo
 
-- Mapeamento de sócios (`qsa`) do retorno da BrasilAPI — não implementado (exigiria um custom record relacionado); a resposta é só logada (`pd-petr-mapper.setFields`).
-- Contact, Employee, Partner — módulo trata apenas Customer/Job/Vendor.
-- Descomissionamento dos scripts legados (`pd_c_entity_federal-registration`, `pd-cnpj-integration`) na conta NetSuite — ação de deploy separada, fora deste módulo.
-- Objects dos campos de bundles externos (seção 3) — não recriados aqui; dependem do bundle correspondente já estar instalado na conta de destino.
+- Sócios (`qsa`/`quadro_socios`) — não mapeados; só logados.
+- Regime Tributário via ReceitaWS e Hub: só Simples/MEI quando o provedor devolve; Lucro Presumido/Real não vêm desses provedores.
+- Formato do retorno do `v2/nome_cpf` não conferido contra resposta real: `hubAdapter.toBirthDate` aceita `data_nascimento`, `data_de_nascimento` ou `nascimento`.
+- O consumo não é vinculado ao cadastro que originou a consulta (em create/edit a consulta acontece antes de o registro existir).
+- Saldo da Hub não é consultado na Hub: o consumo é contabilizado localmente a partir do `consumed`.
+- Destinatários do relatório só podem ser funcionários do NetSuite.
+- Contact, Employee, Partner — fora do escopo; o módulo trata Customer/Job/Vendor.
+- Objects dos bundles externos (§3) não são recriados aqui.
 
 ## 8. Notas de manutenção
 
-- O campo País passou por dois renames antes de existir em produção: `custentity_pd_cefr_country_customer` → `custentity_pd_petr_country` (1.0.0) → `custentity_pd_petr_country_ls` (1.0.1, para adotar o sufixo de tipo). Como nunca foi deployado, os renames foram inofensivos. Se alguma conta já tiver qualquer uma das versões anteriores com dados, será necessário um plano de migração antes de instalar este módulo — rename de scriptid já deployado não é uma operação simples no NetSuite.
-- Manifest (`src/manifest.xml`) declara `SERVERSIDESCRIPTING`, `CRM`, `ACCOUNTING` e `CREATESUITEBUNDLES` como features obrigatórias — as duas primeiras são exigidas pelo User Event e pelos campos `allpartners`/`appliestovendor`; `CREATESUITEBUNDLES` é exigida para os atributos `bundleable`/`hideinbundle` dos arquivos `.js` funcionarem.
-- O deploy emite 2 warnings inofensivos que podem ser ignorados: campo `title` de `scriptdeployment` (não suportado neste schema de User Event, ignorado pela conta) e `aidescription`/`enabletextenhance` do custom field (campos não reconhecidos pela versão de API usada, sem efeito funcional).
-- Buscas usam os utils genéricos `pd-petr-get-data.js`/`pd-petr-set-data.js`/`pd-petr-search-data.js` (portados de `cnab-citibank-remessa`) — qualquer novo service que precise ler/escrever/buscar um record deve reaproveitar esses utils em vez de usar `N/record`/`N/search` diretamente.
+- **Atualização de contas na 1.0.x para a 2.0.0:** reconfigurar "PD | PETR | Configuração das APIs" — habilitar a Hub e informar o token (sem isso não há fallback de CNPJ) e informar de novo o token do ReceitaWS, se houver, no campo de texto. O SDF não exclui campos removidos: `custrecord_pd_petr_as_bra_enabled_cb`, `custrecord_pd_petr_as_rws_token_pw` e, no sandbox `11953512-sb1`, `custrecord_pd_petr_as_hub_token_pw` e `custrecord_pd_petr_as_hub_state_reg_cb` continuam na conta até serem excluídos manualmente.
+- Saved search de listagem do registro de consumo (`customsearch_pd_petr_hcu_list`) ainda não existe — criar na UI e importar via `object:import`.
+- O campo País passou por renames antes de existir em produção (`custentity_pd_cefr_country_customer` → `custentity_pd_petr_country` → `custentity_pd_petr_country_ls`). Contas com versões antigas precisariam de migração.
+- Manifest declara `SERVERSIDESCRIPTING`, `CRM`, `ACCOUNTING` e `CREATESUITEBUNDLES` como features obrigatórias.
+- O deploy emite warnings inofensivos (`allroles`/`audslctrole`, `title` em `scriptdeployment` de Client Script, `aidescription`/`enabletextenhance` de custom field, campos de record ignorados pela versão de API).
+- Novos services que leiam/escrevam/busquem records devem reaproveitar os utils `pd-petr-get-data`/`set-data`/`search-data` — exceção documentada: buscas com agregação (`summarize` do consumo) usam `N/search` direto, porque o util não suporta `summary`.
+- Comentários de código ficam só no bloco do topo de cada arquivo (após o cabeçalho JSDoc), não dentro do corpo.

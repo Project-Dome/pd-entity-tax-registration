@@ -3,6 +3,13 @@
  * @NScriptType UserEventScript
  * @author Produto Dome - Mario Augusto Braga Costa
  */
+/*
+ * Sem registro de Configuração das Validações o botão "Consultar CNPJ" continua visível de
+ * propósito: é ao clicar nele que o usuário recebe o aviso para criar o registro.
+ *
+ * Com "Consultar CPF (Hub)" marcado o botão passa a se chamar "Consultar CPF/CNPJ" — mesmo
+ * botão e mesma função; o desvio para a consulta de CPF acontece em pd-petr-cnpj-lookup.js.
+ */
 define(
     [
         'N/runtime',
@@ -29,8 +36,6 @@ define(
 
             var settings = validationSettingsService.get(); 
 
-            // Sem registro de configuração o botão continua visível de propósito: é ao clicar
-            // nele que o usuário recebe o aviso para criar as Configurações de Validação.
             var shouldShowCnpjButton = !settings || settings.enableCnpjButton;
 
             log.debug({
@@ -39,9 +44,13 @@ define(
             });
 
             if (shouldShowCnpjButton) {
+                var buttonLabel = settings && settings.enableCpfLookup
+                    ? constantsModule.BUTTON.LABEL_WITH_CPF
+                    : constantsModule.BUTTON.LABEL;
+
                 context.form.addButton({
                     id: constantsModule.BUTTON.ID,
-                    label: constantsModule.BUTTON.LABEL,
+                    label: buttonLabel,
                     functionName: constantsModule.BUTTON.FUNCTION
                 });
                 context.form.clientScriptModulePath = constantsModule.SCRIPTS.CLIENT_SCRIPT_PATH;

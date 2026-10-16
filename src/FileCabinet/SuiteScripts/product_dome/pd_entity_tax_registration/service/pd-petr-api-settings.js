@@ -3,6 +3,11 @@
  * @NModuleScope Public
  * @author Produto Dome - Mario Augusto Braga Costa
  */
+/*
+ * get() devolve null quando não existe registro de Configuração das APIs ativo — quem chama
+ * decide o que fazer. O null não é cacheado, para que um registro criado durante a sessão
+ * passe a valer na chamada seguinte (mesmo padrão de pd-petr-validation-settings.get()).
+ */
 define(
     [
         '../modules/pd-petr-constants',
@@ -30,10 +35,6 @@ define(
             }
         }
 
-        // Devolve null quando não existe registro de configuração ativo na conta. Sem
-        // configuração o módulo não assume nada: quem chama decide o que fazer. O null NÃO é
-        // cacheado, para que o registro criado durante a sessão passe a valer na chamada
-        // seguinte — mesmo padrão de pd-petr-validation-settings.get().
         function get() {
             if (cachedSettings) return cachedSettings;
 
@@ -44,7 +45,10 @@ define(
                 rwsEnabled: stored.rwsEnabled,
                 rwsToken: stored.rwsToken,
                 rwsRateLimit: stored.rwsRateLimit,
-                brasilApiEnabled: stored.brasilApiEnabled
+                hubEnabled: stored.hubEnabled,
+                hubToken: stored.hubToken,
+                hubMonthlyCredits: stored.hubMonthlyCredits,
+                hubRenewalDay: stored.hubRenewalDay
             };
 
             return cachedSettings;
