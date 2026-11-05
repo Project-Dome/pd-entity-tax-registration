@@ -34,7 +34,7 @@
       </fields>
     </fieldGroup>
     <fieldGroup scriptid="fieldgroup_pd_petr_vs_lookup">
-      <label>Consulta na Receita</label>
+      <label>Consulta de CPF/CNPJ</label>
       <visible>T</visible>
       <showTitle>T</showTitle>
       <singleColumn>F</singleColumn>
@@ -59,6 +59,62 @@
           <sameRowAsPrevious>F</sameRowAsPrevious>
           <quickAdd>F</quickAdd>
         </field>
+      </fields>
+    </fieldGroup>
+    <fieldGroup scriptid="fieldgroup_pd_petr_vs_chain">
+      <label>Hierarquia da Consulta de CNPJ</label>
+      <visible>T</visible>
+      <showTitle>T</showTitle>
+      <singleColumn>F</singleColumn>
+      <fields position="MIDDLE">
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_rws_in_chain_cb]</id>
+          <label>ReceitaWS na Hierarquia (1º)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_hub_in_chain_cb]</id>
+          <label>Hub do Desenvolvedor na Hierarquia (2º)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_dd_in_chain_cb]</id>
+          <label>DirectD na Hierarquia (3º)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_dd_chain_mode_ls]</id>
+          <label>Consulta DirectD na Hierarquia</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+      </fields>
+    </fieldGroup>
+    <fieldGroup scriptid="fieldgroup_pd_petr_vs_hub">
+      <label>Hub do Desenvolvedor</label>
+      <visible>T</visible>
+      <showTitle>T</showTitle>
+      <singleColumn>F</singleColumn>
+      <fields position="MIDDLE">
         <field>
           <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_hub_state_reg_cb]</id>
           <label>Consultar Inscrição Estadual (Hub)</label>
@@ -111,8 +167,56 @@
         </field>
       </fields>
     </fieldGroup>
+    <fieldGroup scriptid="fieldgroup_pd_petr_vs_dd">
+      <label>DirectD</label>
+      <visible>T</visible>
+      <showTitle>T</showTitle>
+      <singleColumn>F</singleColumn>
+      <fields position="MIDDLE">
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_dd_full_btn_cb]</id>
+          <label>Botão Consulta Completa (DirectD)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_dd_plus_btn_cb]</id>
+          <label>Botão Consultar CNPJ Plus (DirectD)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_dd_basic_btn_cb]</id>
+          <label>Botão Consultar CNPJ Básico (DirectD)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+        <field>
+          <id>[scriptid=customrecord_pd_petr_validation_settings.custrecord_pd_petr_vs_dd_ie_btn_cb]</id>
+          <label>Botão Consultar Inscrição Estadual (DirectD)</label>
+          <visible>T</visible>
+          <mandatory>F</mandatory>
+          <displayType>NORMAL</displayType>
+          <columnBreak>F</columnBreak>
+          <sameRowAsPrevious>F</sameRowAsPrevious>
+          <quickAdd>F</quickAdd>
+        </field>
+      </fields>
+    </fieldGroup>
     <fieldGroup scriptid="fieldgroup_pd_petr_vs_upd">
-      <label>Atualização de Campos via Receita</label>
+      <label>Atualização de Campos</label>
       <visible>T</visible>
       <showTitle>T</showTitle>
       <singleColumn>F</singleColumn>

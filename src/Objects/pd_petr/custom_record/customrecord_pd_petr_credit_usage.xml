@@ -1,0 +1,122 @@
+<customrecordtype scriptid="customrecord_pd_petr_credit_usage">
+  <accesstype>NONENEEDED</accesstype>
+  <allowattachments>F</allowattachments>
+  <allowinlinedeleting>F</allowinlinedeleting>
+  <allowinlinedetaching>F</allowinlinedetaching>
+  <allowinlineediting>F</allowinlineediting>
+  <allowmobileaccess>F</allowmobileaccess>
+  <allowquickadd>F</allowquickadd>
+  <allowquicksearch>T</allowquicksearch>
+  <allowuiaccess>T</allowuiaccess>
+  <description>Uma linha por consulta paga (Hub do Desenvolvedor e DirectD), gravada automaticamente pelo módulo PD | PETR (Entity Tax Registration). Base do saldo de créditos de cada provedor e do relatório de créditos. "Sem permissão necessária" porque a linha é gravada e somada pelos scripts de consulta com o papel do usuário que consultou.</description>
+  <enablekeywords>F</enablekeywords>
+  <enablenumbering>F</enablenumbering>
+  <enableoptimisticlocking>F</enableoptimisticlocking>
+  <enablesystemnotes>T</enablesystemnotes>
+  <hierarchical>F</hierarchical>
+  <icon></icon>
+  <iconbuiltin>T</iconbuiltin>
+  <includename>F</includename>
+  <isinactive>F</isinactive>
+  <recordname>PD | PETR | Consumo de Créditos das APIs</recordname>
+  <showid>F</showid>
+  <showlastmodified>F</showlastmodified>
+  <showlastmodifiedonlist>F</showlastmodifiedonlist>
+  <shownotes>F</shownotes>
+  <showowner>F</showowner>
+  <customrecordcustomfields>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_provider_ls">
+      <accesslevel>2</accesslevel>
+      <fieldtype>SELECT</fieldtype>
+      <help>Provedor que cobrou a consulta: Hub do Desenvolvedor ou DirectD. Preenchido automaticamente.</help>
+      <label>Provedor</label>
+      <searchlevel>2</searchlevel>
+      <selectrecordtype>[scriptid=customlist_pd_petr_api_provider]</selectrecordtype>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_query_type_ds">
+      <accesslevel>2</accesslevel>
+      <fieldtype>TEXT</fieldtype>
+      <help>Tipo de consulta feita no provedor. Hub do Desenvolvedor: CNPJ, CNPJ + Inscrição Estadual, CPF (base Hub), CPF (Receita Federal) ou Data de Nascimento (nome_cpf). DirectD: CNPJ Plus, CNPJ Básico, Sintegra ou Receita Federal PJ. Preenchido automaticamente.</help>
+      <label>Tipo de Consulta</label>
+      <searchlevel>2</searchlevel>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_document_ds">
+      <accesslevel>2</accesslevel>
+      <fieldtype>TEXT</fieldtype>
+      <help>CPF ou CNPJ consultado. Preenchido automaticamente.</help>
+      <label>CPF/CNPJ Consultado</label>
+      <searchlevel>2</searchlevel>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_credits_nu">
+      <accesslevel>2</accesslevel>
+      <fieldtype>INTEGER</fieldtype>
+      <help>Só para a Hub do Desenvolvedor: créditos efetivamente cobrados nesta consulta (campo "consumed" da resposta da Hub). Preenchido automaticamente.</help>
+      <label>Créditos Consumidos (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_cost_cr">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CURRENCY</fieldtype>
+      <help>Só para a DirectD: custo em R$ desta consulta, pelo preço configurado no registro PD | PETR | Configuração das APIs no momento da consulta. Preenchido automaticamente.</help>
+      <label>Custo (R$)</label>
+      <searchlevel>2</searchlevel>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_query_uid_ds">
+      <accesslevel>2</accesslevel>
+      <fieldtype>TEXT</fieldtype>
+      <help>Identificador da consulta no provedor (consultaUid da DirectD), para conferência com o extrato do provedor. Preenchido automaticamente.</help>
+      <label>ID da Consulta no Provedor</label>
+      <searchlevel>2</searchlevel>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_user_ls">
+      <accesslevel>2</accesslevel>
+      <fieldtype>SELECT</fieldtype>
+      <help>Usuário que fez a consulta. Preenchido automaticamente; fica vazio em execuções sem usuário (ex.: CSV Import agendado).</help>
+      <label>Usuário</label>
+      <searchlevel>2</searchlevel>
+      <selectrecordtype>-4</selectrecordtype>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_hub_balance_nu">
+      <accesslevel>2</accesslevel>
+      <fieldtype>INTEGER</fieldtype>
+      <help>Só para a Hub do Desenvolvedor: créditos que sobraram depois desta consulta (Créditos Carregados (Hub) menos o consumo desde o Início da Contagem, já contando esta consulta). É o saldo no momento da consulta: recargas posteriores não alteram linhas antigas. Preenchido automaticamente.</help>
+      <label>Saldo Após a Consulta (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_dd_balance_cr">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CURRENCY</fieldtype>
+      <help>Só para a DirectD: valor em R$ que sobrou depois desta consulta (Créditos Carregados (R$) menos o consumo desde o Início da Contagem, já contando esta consulta). Fica vazio quando os Créditos Carregados da DirectD não estão preenchidos (saldo controlado na própria DirectD). É o saldo no momento da consulta: recargas posteriores não alteram linhas antigas. Preenchido automaticamente.</help>
+      <label>Saldo Após a Consulta (R$)</label>
+      <searchlevel>2</searchlevel>
+      <showinlist>T</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_cu_api_response_lt">
+      <accesslevel>2</accesslevel>
+      <displaytype>HIDDEN</displaytype>
+      <fieldtype>CLOBTEXT</fieldtype>
+      <help>Resposta completa devolvida pela API do provedor nesta consulta, em formato JSON, para conferência e suporte. Contém os dados cadastrais retornados (e, na consulta de CPF, dados pessoais como nome e data de nascimento). Preenchido automaticamente.</help>
+      <label>Resposta da API</label>
+      <searchlevel>2</searchlevel>
+      <showinlist>F</showinlist>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+  </customrecordcustomfields>
+</customrecordtype>

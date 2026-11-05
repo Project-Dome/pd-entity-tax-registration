@@ -9,6 +9,10 @@
  *
  * Com "Consultar CPF (Hub)" marcado o botão passa a se chamar "Consultar CPF/CNPJ" — mesmo
  * botão e mesma função; o desvio para a consulta de CPF acontece em pd-petr-cnpj-lookup.js.
+ *
+ * Botões da DirectD (DIRECTD_BUTTONS): um por flag marcada na Configuração das Validações. Só
+ * dependem dessa flag — a habilitação e o token da DirectD são checados no clique, para o User
+ * Event não ler a Configuração das APIs (guarda os tokens e pode não estar acessível ao papel).
  */
 define(
     [
@@ -53,6 +57,21 @@ define(
                     label: buttonLabel,
                     functionName: constantsModule.BUTTON.FUNCTION
                 });
+            }
+
+            var directdButtons = settings
+                ? constantsModule.DIRECTD_BUTTONS.filter(function (button) { return settings[button.SETTING]; })
+                : [];
+
+            directdButtons.forEach(function (button) {
+                context.form.addButton({
+                    id: button.ID,
+                    label: button.LABEL,
+                    functionName: button.FUNCTION
+                });
+            });
+
+            if (shouldShowCnpjButton || directdButtons.length) {
                 context.form.clientScriptModulePath = constantsModule.SCRIPTS.CLIENT_SCRIPT_PATH;
             }
         }

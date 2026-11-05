@@ -1,5 +1,5 @@
 <usereventscript scriptid="customscript_pd_petr_tax_reg_ue">
-  <description>Valida unicidade e formato de CNPJ/CPF/Registro Fiscal Internacional, e enriquece dados cadastrais via ReceitaWS (com fallback para a Hub do Desenvolvedor), para Customer/Job/Vendor.</description>
+  <description>Valida unicidade e formato de CNPJ/CPF/Registro Fiscal Internacional, e enriquece dados cadastrais pela hierarquia ReceitaWS → Hub do Desenvolvedor → DirectD (CSV Import), adicionando os botões de consulta (inclusive os da DirectD), para Customer/Job/Vendor.</description>
   <isinactive>F</isinactive>
   <name>PD | PETR | Entity Tax Registration UE</name>
   <notifyadmins>F</notifyadmins>

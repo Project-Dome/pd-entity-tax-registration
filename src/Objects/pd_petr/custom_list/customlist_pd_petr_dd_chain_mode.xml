@@ -1,0 +1,20 @@
+<customlist scriptid="customlist_pd_petr_dd_chain_mode">
+  <description>Consulta da DirectD usada como 3º nível da hierarquia de consulta de CNPJ (botão "Consultar CNPJ" e consulta automática) do módulo PD | PETR (Entity Tax Registration).</description>
+  <isinactive>F</isinactive>
+  <isordered>T</isordered>
+  <name>PD | PETR | Consulta DirectD</name>
+  <customvalues>
+    <customvalue scriptid="val_pd_petr_dcm_full">
+      <isinactive>F</isinactive>
+      <value>Consulta Completa</value>
+    </customvalue>
+    <customvalue scriptid="val_pd_petr_dcm_plus">
+      <isinactive>F</isinactive>
+      <value>CNPJ Plus</value>
+    </customvalue>
+    <customvalue scriptid="val_pd_petr_dcm_basic">
+      <isinactive>F</isinactive>
+      <value>CNPJ Básico</value>
+    </customvalue>
+  </customvalues>
+</customlist>

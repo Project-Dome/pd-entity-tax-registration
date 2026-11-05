@@ -8,7 +8,7 @@
   <allowquickadd>T</allowquickadd>
   <allowquicksearch>T</allowquicksearch>
   <allowuiaccess>T</allowuiaccess>
-  <description>Registro único de configuração dos provedores de consulta de CNPJ (ReceitaWS e Hub do Desenvolvedor) do módulo PD | PETR (Entity Tax Registration) — habilitação, token e limite de consultas por minuto de cada provedor.</description>
+  <description>Registro único de configuração dos provedores de consulta de CNPJ (ReceitaWS, Hub do Desenvolvedor e DirectD) do módulo PD | PETR (Entity Tax Registration) — habilitação, token, limite de consultas por minuto, preços e saldo de créditos de cada provedor.</description>
   <enabledynamicgrid>F</enabledynamicgrid>
   <enablekeywords>T</enablekeywords>
   <enablemailmerge>F</enablemailmerge>
@@ -35,7 +35,7 @@
       <accesslevel>2</accesslevel>
       <defaultchecked>T</defaultchecked>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, o ReceitaWS é consultado como provedor primário de dados de CNPJ. Quando desmarcado, o ReceitaWS é ignorado e a consulta vai direto para a Hub do Desenvolvedor (se habilitada).</help>
+      <help>Quando marcado, o ReceitaWS pode ser consultado como 1º nível da hierarquia de consulta de CNPJ (desde que "ReceitaWS na Hierarquia" esteja marcado na Configuração das Validações). Quando desmarcado, o ReceitaWS é ignorado e a consulta vai para o próximo provedor da hierarquia.</help>
       <label>Habilitar ReceitaWS</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -61,7 +61,7 @@
       <accesslevel>2</accesslevel>
       <defaultchecked>T</defaultchecked>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, a Hub do Desenvolvedor é consultada como provedor de fallback, caso o ReceitaWS esteja desabilitado, sem cota disponível, ou tenha falhado. Requer o campo "Token Hub do Desenvolvedor" preenchido.</help>
+      <help>Quando marcado, a Hub do Desenvolvedor pode ser consultada como 2º nível da hierarquia de consulta de CNPJ (desde que "Hub do Desenvolvedor na Hierarquia" esteja marcado na Configuração das Validações), caso o ReceitaWS esteja fora da hierarquia, sem cota disponível, ou tenha falhado. Também é necessária para a consulta de CPF. Requer o campo "Token Hub do Desenvolvedor" preenchido.</help>
       <label>Habilitar Hub do Desenvolvedor</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -90,6 +90,123 @@
       <label>Dia de Renovação do Pacote</label>
       <maxvalue>28</maxvalue>
       <minvalue>1</minvalue>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_hub_avail_nu">
+      <accesslevel>2</accesslevel>
+      <fieldtype>INTEGER</fieldtype>
+      <help>Total de créditos da Hub do Desenvolvedor carregados para consumo a partir de "Início da Contagem (Hub)". O saldo, mostrado em "Créditos Disponíveis (Hub)", é este valor menos o consumo registrado desde o início da contagem; sem saldo para a consulta, ela é bloqueada (na consulta de CNPJ, a Hub é pulada e a consulta segue para a DirectD, se estiver na hierarquia). Em branco ou zero, a Hub fica desligada: não é consultada nem gera mensagem na consulta de CNPJ, e a consulta de CPF fica indisponível.</help>
+      <label>Créditos Carregados (Hub)</label>
+      <minvalue>0</minvalue>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_hub_balance_nu">
+      <accesslevel>2</accesslevel>
+      <displaytype>LOCKED</displaytype>
+      <fieldtype>INTEGER</fieldtype>
+      <help>Saldo atual da Hub do Desenvolvedor: Créditos Carregados (Hub) menos o consumo registrado desde o Início da Contagem (Hub). Calculado automaticamente ao abrir este registro; não é editável nem gravado. Vazio quando Créditos Carregados (Hub) está vazio.</help>
+      <label>Créditos Disponíveis (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>F</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_hub_start_dt">
+      <accesslevel>2</accesslevel>
+      <fieldtype>DATE</fieldtype>
+      <help>Data a partir da qual o consumo da Hub do Desenvolvedor é descontado de "Créditos Carregados (Hub)". Para recarregar o saldo, ajuste os Créditos Carregados e/ou esta data. Em branco, todo o consumo registrado da Hub é descontado.</help>
+      <label>Início da Contagem (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_hub_valid_to_dt">
+      <accesslevel>2</accesslevel>
+      <fieldtype>DATE</fieldtype>
+      <help>Último dia em que a Hub do Desenvolvedor pode ser consultada. Depois dessa data, as consultas pela Hub são bloqueadas até a data ser ajustada. Em branco, sem validade.</help>
+      <label>Válido até (Hub)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_enabled_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Quando marcado, as consultas da DirectD ficam disponíveis: os botões da DirectD (conforme o registro de Configuração das Validações) e o 3º nível da hierarquia de consulta de CNPJ. Requer o campo "Token DirectD" preenchido.</help>
+      <label>Habilitar DirectD</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_token_ds">
+      <accesslevel>2</accesslevel>
+      <fieldtype>TEXT</fieldtype>
+      <help>Obrigatório para usar a DirectD. Token de acesso da conta contratada na DirectD. Os IPs de saída do NetSuite precisam estar liberados no painel da DirectD; sem isso, a DirectD recusa a consulta com "IP ou Token inválido".</help>
+      <label>Token DirectD</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_prc_plus_cr">
+      <accesslevel>2</accesslevel>
+      <defaultvalue>0.36</defaultvalue>
+      <fieldtype>CURRENCY</fieldtype>
+      <help>Preço em R$ por consulta CNPJ Plus; usado no saldo. Campos retornados: Bairro, Cargo, CEP, Cidade, CNAE - Código, CNAE - Código Secundário, CNAE Descrição, CNAE Secundário - Descrição, CNPJ, Código da Natureza Jurídica, Complemento, Data de Entrada, Data de Fundação, Descrição da Natureza Jurídica, Documento, Endereço de E-mail, Faixa de faturamento, Faixa de Funcionários, Faturamento Médio do CNAE, Faturamento Presumido, Flag Matriz, Flag Telemarketing Bloqueado, Flag WhatsApp, Lista de CNAE Secundários, Lista de E-mail, Lista de Endereço, Lista de Filiais, Lista de Sócios, Lista de Telefones, Logradouro, Nome, Nome Fantasia, Número, Opção MEI, Opção Simples, Operadora, Órgão Público, Percentual de Participação, Porte, Quantidade de Filiais, Quantidade de Funcionários, Ramo, Razão Social, Situação Cadastral, Telefone com DDD, Tipo da Empresa, Tipo da Natureza Jurídica, Tipo de Telefone, Tributação, UF, Última Atualização da Pessoa Jurídica.</help>
+      <label>Preço CNPJ Plus (R$)</label>
+      <minvalue>0</minvalue>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_prc_basic_cr">
+      <accesslevel>2</accesslevel>
+      <defaultvalue>0.16</defaultvalue>
+      <fieldtype>CURRENCY</fieldtype>
+      <help>Preço em R$ por consulta Cadastro – Pessoa Jurídica – Básica; usado no saldo. Campos retornados: Bairro, Cargo, CEP, Cidade, CNAE - Código, CNAE - Código Secundário, CNAE - Descrição, CNAE Secundário - Descrição, CNPJ, Código da Natureza Jurídica, Complemento, Data de Entrada, Data de Fundação, Descrição da Natureza Jurídica, Documento, Endereço, Endereço de E-mail, Faixa de faturamento, Faixa de Funcionários, Flag Matriz, Flag Telemarketing Bloqueado, Flag WhatsApp, Lista de CNAE Secundários, Lista de E-mail, Lista de Endereço, Lista de Sócios, Lista de Telefones, Logradouro, Nome, Nome Fantasia, Número, Operadora, Órgão Público, Percentual de Participação, Porte, Quantidade de Funcionários, Ramo, Razão Social, Situação Cadastral, Telefone com DDD, Tipo da Empresa, Tipo da Natureza Jurídica, Tipo de Telefone, UF, Última Atualização da Pessoa Jurídica.</help>
+      <label>Preço CNPJ Básico (R$)</label>
+      <minvalue>0</minvalue>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_prc_sint_cr">
+      <accesslevel>2</accesslevel>
+      <defaultvalue>0.36</defaultvalue>
+      <fieldtype>CURRENCY</fieldtype>
+      <help>Preço em R$ por consulta Sintegra – Cadastros Estaduais; usado no saldo. Campos retornados: Atividade Econômica Principal, Bairro, CEP, Cidade, CNPJ, Código, Código de Controle, Complemento, CPF, Data da Consulta, Data da Situação Cadastral, Data de Abertura, Data de Início da Obrigatoriedade NFe, Data do Credenciamento do Emissor NFe, Data do Fim da Atividade, Data do Início da Atividade, Delegacia Regional da Receita, E-mail, Habilitada, IE, Indicador de Obrigatoriedade de NFe, Informação do IBGE, Inscrição, Lista de Atividades Econômicas Secundárias, Lista de Inscrições Estaduais, Logradouro, Motivo da Situação Cadastral, Município, Natureza Jurídica, Nome Empresarial, Nome Fantasia, Número, Observação, Ocorrência Fiscal, Regime de Apuração, Situação, Situação Cadastral, Situação do Contribuinte na Data, Telefone, Tipo, UF, UF da IE, Vínculo.</help>
+      <label>Preço Sintegra (R$)</label>
+      <minvalue>0</minvalue>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_prc_rfb_cr">
+      <accesslevel>2</accesslevel>
+      <defaultvalue>0.36</defaultvalue>
+      <fieldtype>CURRENCY</fieldtype>
+      <help>Preço em R$ por consulta Receita Federal – Pessoa Jurídica (sem botão próprio: feita quando o CNPJ não é encontrado na Plus ou Básica); usado no saldo. Campos retornados: Atividade Econômica Principal, Bairro ou Distrito, Capital Social QSA, CEP, Complemento, Data da Consulta, Data da Situação Cadastral, Data da Situação Especial, Data de Abertura, Data de Emissão, Documento do Sócio, EFR, Endereço Eletrônico, Flag de Recuperação Judicial, Flag Matriz, Flag Representante Legal, Lista de Atividades Econômicas Secundárias, Lista de Sócios, Logradouro, Motivo da Situação Cadastral, Município, Natureza Jurídica, Nome do Representante Legal, Nome Empresarial, Nome Fantasia, Nome ou Nome Empresarial, Número, Número de Inscrição, Porte, Qualificação, Qualificação do Representante Legal, Situação Cadastral, Situação Especial, Telefone, UF.</help>
+      <label>Preço Receita Federal PJ (R$)</label>
+      <minvalue>0</minvalue>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_avail_cr">
+      <accesslevel>2</accesslevel>
+      <fieldtype>CURRENCY</fieldtype>
+      <help>Valor total em R$ carregado para consumo na DirectD a partir de "Início da Contagem". O saldo, mostrado em "Créditos Disponíveis (R$)", é este valor menos o custo das consultas registradas desde o início da contagem; uma consulta só é feita se o saldo cobrir o custo previsto dela inteira. Em branco, não há bloqueio por saldo.</help>
+      <label>Créditos Carregados (R$)</label>
+      <minvalue>0</minvalue>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_balance_cr">
+      <accesslevel>2</accesslevel>
+      <displaytype>LOCKED</displaytype>
+      <fieldtype>CURRENCY</fieldtype>
+      <help>Saldo atual da DirectD em R$: Créditos Carregados (R$) menos o custo das consultas registradas desde o Início da Contagem. Calculado automaticamente ao abrir este registro; não é editável nem gravado. Vazio quando Créditos Carregados (R$) está vazio (saldo controlado na própria DirectD).</help>
+      <label>Créditos Disponíveis (R$)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>F</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_as_dd_start_dt">
+      <accesslevel>2</accesslevel>
+      <fieldtype>DATE</fieldtype>
+      <help>Data a partir da qual o custo das consultas da DirectD é descontado de "Créditos Carregados (R$)". Para recarregar o saldo, ajuste os Créditos Carregados e/ou esta data. Em branco, todo o consumo registrado da DirectD é descontado.</help>
+      <label>Início da Contagem</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
     </customrecordcustomfield>

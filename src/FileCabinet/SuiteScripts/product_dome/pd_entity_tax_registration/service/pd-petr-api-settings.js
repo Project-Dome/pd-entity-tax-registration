@@ -7,6 +7,9 @@
  * get() devolve null quando não existe registro de Configuração das APIs ativo — quem chama
  * decide o que fazer. O null não é cacheado, para que um registro criado durante a sessão
  * passe a valer na chamada seguinte (mesmo padrão de pd-petr-validation-settings.get()).
+ *
+ * Os campos de data (hubCountStart, hubValidTo, ddCountStart) voltam da busca como
+ * texto no formato de data da conta; quem usa converte com N/format (pd-petr-credit-usage.js).
  */
 define(
     [
@@ -48,7 +51,18 @@ define(
                 hubEnabled: stored.hubEnabled,
                 hubToken: stored.hubToken,
                 hubMonthlyCredits: stored.hubMonthlyCredits,
-                hubRenewalDay: stored.hubRenewalDay
+                hubRenewalDay: stored.hubRenewalDay,
+                hubLoadedCredits: stored.hubLoadedCredits,
+                hubCountStart: stored.hubCountStart,
+                hubValidTo: stored.hubValidTo,
+                ddEnabled: stored.ddEnabled,
+                ddToken: stored.ddToken,
+                ddPricePlus: stored.ddPricePlus,
+                ddPriceBasic: stored.ddPriceBasic,
+                ddPriceSintegra: stored.ddPriceSintegra,
+                ddPriceFederalRevenue: stored.ddPriceFederalRevenue,
+                ddLoadedCredits: stored.ddLoadedCredits,
+                ddCountStart: stored.ddCountStart
             };
 
             return cachedSettings;

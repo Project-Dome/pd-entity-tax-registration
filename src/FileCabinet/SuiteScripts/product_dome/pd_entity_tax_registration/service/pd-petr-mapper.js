@@ -9,8 +9,8 @@
  * - companyname é a razão social exibida em toda a conta, por isso sempre reflete o retorno da
  *   Receita, mesmo sobrescrevendo valor já preenchido. Os demais campos só são preenchidos se
  *   estiverem vazios.
- * - Inscrição Estadual só vem da Hub e só quando enableStateRegLookup está marcado (custa 2
- *   créditos adicionais) — por isso usa essa flag em vez de uma "update*".
+ * - Inscrição Estadual vem da Hub (quando enableStateRegLookup está marcado) ou da DirectD
+ *   (opção writeStateRegistration) — por isso usa essas condições em vez de uma "update*".
  * - Retorno de CPF (tipo_pessoa "PF") só preenche o nome, em firstname, sempre refletindo a
  *   Receita (mesma regra de companyname). firstname só existe em cadastro de Pessoa Física
  *   (Individual); sem ele, devolve um aviso em vez de falhar. A data de nascimento devolvida
@@ -19,30 +19,40 @@
  *   abortar o save: manipular o subrecord fora do modo dynamic é instável no NetSuite
  *   (getSublistSubrecord pode devolver null). Em modo dynamic, ler linha existente exige
  *   selectLine + getCurrentSublistSubrecord + cancelLine.
- * - Cidade: prioriza o código IBGE (do provedor de CNPJ — nenhum dos atuais retorna — ou da
- *   consulta de CEP, que devolve ibge.city). Sem IBGE, busca por município + UF: filtro amplo
- *   por UF + 1ª letra (fórmula SQL, ver NAME_FORMULAS) e comparação exata em JS sem acento e
- *   caixa, porque o "startswith" do formulatext não é acento-insensível.
+ * - Cidade e Regime Tributário: os ids são resolvidos pelo Suitelet anônimo de busca
+ *   (pd-petr-data-lookup-gateway), porque o papel de quem clica em "Consultar CNPJ" pode não
+ *   ter acesso a customrecord_ftebr_city / customrecord_fte_taxregime. Para a cidade vão o
+ *   código IBGE (do provedor de CNPJ — nenhum dos atuais retorna — ou da consulta de CEP), o
+ *   município e a UF; a regra de prioridade está em pd-petr-city.js.
  * - regime_tributario: "ano" pode vir como string — comparado com Number() para não virar
  *   comparação lexicográfica ("9" > "10").
+ * - Opções de setFields (docs/specs/directd-integration.md §6.6): writeStateRegistration grava a
+ *   IE sem depender de "Consultar Inscrição Estadual (Hub)" (retorno da DirectD, que só traz IE
+ *   quando o Sintegra foi consultado); stateRegistrationOnly (botão "Consultar Inscrição
+ *   Estadual") grava só a IE, se o campo estiver vazio, e avisa quando não grava.
+ * - findAddressState: UF do endereço de faturamento padrão ou, sem ele, da primeira linha do
+ *   addressbook com estado. Mesmo padrão de leitura de subrecord de addressbookHasZip (funciona
+ *   no cliente e no servidor).
  */
 define(
     [
         '../modules/pd-petr-constants',
         './pd-petr-cep-api',
         './pd-petr-validation-settings',
-        '../util/pd-petr-search-data'
+        './pd-petr-data-lookup-gateway'
     ],
     function (
         constantsModule,
         cepApiService,
         validationSettingsService,
-        searchDataUtil
+        dataLookupGateway
     ) {
+        var LOOKUP_ACTIONS = constantsModule.DATA_LOOKUP.ACTIONS;
         var FIELDS = constantsModule.ENTITY.FIELDS;
 
-        function setFields(currentRecord, json) {
+        function setFields(currentRecord, json, options) {
             var settings = validationSettingsService.get();
+            var mapOptions = options || {};
 
             if (!settings) {
                 log.error({
@@ -50,6 +60,10 @@ define(
                     details: 'Não há registro de Configurações de Validação ativo — enriquecimento não executado.'
                 });
                 return { success: false };
+            }
+
+            if (mapOptions.stateRegistrationOnly) {
+                return setStateRegistrationOnly(currentRecord, json);
             }
 
             if (json.tipo_pessoa === 'PF') {
@@ -70,7 +84,7 @@ define(
             if (settings.updatePhone && json.ddd_telefone_1) setIfEmpty(currentRecord, FIELDS.phone.name, formatPhone(json.ddd_telefone_1));
             if (settings.updateEmail && json.email) setIfEmpty(currentRecord, FIELDS.email.name, json.email);
 
-            if (settings.enableStateRegLookup && json.inscricao_estadual) {
+            if ((settings.enableStateRegLookup || mapOptions.writeStateRegistration) && json.inscricao_estadual) {
                 if (fieldExists(currentRecord, FIELDS.stateRegistration.name)) {
                     setIfEmpty(currentRecord, FIELDS.stateRegistration.name, json.inscricao_estadual);
                 } else {
@@ -101,6 +115,90 @@ define(
             var addressWarning = settings.updateAddress ? insertAddress(currentRecord, json) : null;
 
             return { success: true, warning: addressWarning || null };
+        }
+
+        function setStateRegistrationOnly(currentRecord, json) {
+            var fieldId = FIELDS.stateRegistration.name;
+
+            if (!fieldExists(currentRecord, fieldId)) {
+                return {
+                    success: true,
+                    warning: {
+                        title: 'Inscrição Estadual não preenchida',
+                        message: 'A Inscrição Estadual ' + json.inscricao_estadual + ' foi encontrada, mas o campo Inscrição Estadual não está disponível neste formulário.'
+                    }
+                };
+            }
+
+            var current = currentRecord.getValue({ fieldId: fieldId });
+
+            if (current) {
+                return {
+                    success: true,
+                    warning: {
+                        title: 'Inscrição Estadual mantida',
+                        message: 'O cadastro já tem a Inscrição Estadual ' + current + '. A inscrição encontrada no Sintegra ('
+                            + json.inscricao_estadual + ') não foi gravada.'
+                    }
+                };
+            }
+
+            currentRecord.setValue({ fieldId: fieldId, value: json.inscricao_estadual });
+
+            return { success: true, warning: null };
+        }
+
+        function buildMapOptions(result, lookupMode) {
+            return {
+                writeStateRegistration: !!result && result.provider === 'DIRECTD',
+                stateRegistrationOnly: lookupMode === constantsModule.LOOKUP_MODES.DD_IE
+            };
+        }
+
+        function findAddressState(currentRecord) {
+            var sublistId = constantsModule.ENTITY.SUBLISTS.ADDRESS.ID;
+            var subrecordId = constantsModule.ENTITY.SUBLISTS.ADDRESS.SUBRECORD.ID;
+            var stateFieldId = constantsModule.ENTITY.SUBLISTS.ADDRESS.SUBRECORD.FIELDS.STATE;
+            var lineCount = currentRecord.getLineCount({ sublistId: sublistId });
+            var isDynamic = currentRecord.isDynamic;
+            var defaultBillingState = '';
+            var firstState = '';
+
+            for (var line = 0; line < lineCount; line++) {
+                var state = '';
+
+                try {
+                    var addressSubrecord;
+
+                    if (isDynamic) {
+                        currentRecord.selectLine({ sublistId: sublistId, line: line });
+                        addressSubrecord = currentRecord.getCurrentSublistSubrecord({ sublistId: sublistId, fieldId: subrecordId });
+                    } else {
+                        addressSubrecord = currentRecord.getSublistSubrecord({ sublistId: sublistId, fieldId: subrecordId, line: line });
+                    }
+
+                    state = addressSubrecord ? String(addressSubrecord.getValue({ fieldId: stateFieldId }) || '').trim() : '';
+
+                    if (isDynamic) currentRecord.cancelLine({ sublistId: sublistId });
+                } catch (e) {
+                    log.error({
+                        title: 'pd-petr-mapper.findAddressState',
+                        details: { line: line, isDynamic: isDynamic, message: e.message }
+                    });
+                }
+
+                if (!state) continue;
+
+                if (!firstState) firstState = state;
+
+                var isDefaultBilling = currentRecord.getSublistValue({ sublistId: sublistId, fieldId: 'defaultbilling', line: line });
+                if (isDefaultBilling === true || isDefaultBilling === 'T') {
+                    defaultBillingState = state;
+                    break;
+                }
+            }
+
+            return (defaultBillingState || firstState).toUpperCase();
         }
 
         function setPersonFields(currentRecord, json) {
@@ -279,89 +377,19 @@ define(
             currentRecord.setValue({ fieldId: fieldId, value: value });
         }
 
-        function lookupCityInternalId(ibgeCode) {
-            if (!ibgeCode) return null;
-            try {
-                var result = searchDataUtil.first({
-                    type: constantsModule.ENTITY.CITY_LOOKUP.RECORD_TYPE,
-                    fields: constantsModule.ENTITY.CITY_LOOKUP.FIELDS,
-                    filters: [[constantsModule.ENTITY.CITY_LOOKUP.FIELDS.ibgeCode.name, 'equalto', Number(ibgeCode)]]
-                });
-
-                log.debug({
-                    title: 'result',
-                    details: result
-                })
-
-                if (!result) {
-                    log.debug('pd-petr-mapper.lookupCityInternalId', 'No ' + constantsModule.ENTITY.CITY_LOOKUP.RECORD_TYPE + ' match for IBGE code ' + ibgeCode);
-                    return null;
-                }
-                return result.internalId;
-            } catch (e) {
-                log.error('pd-petr-mapper.lookupCityInternalId', e);
-                return null;
-            }
-        }
-
         function resolveCityInternalId(json, uf, cep) {
             var ibgeCode = json.codigo_municipio_ibge || (cep && cep.ibge && cep.ibge.city);
 
-            if (ibgeCode) {
-                var cityIdByIbge = lookupCityInternalId(ibgeCode);
-                if (cityIdByIbge) return cityIdByIbge;
-                log.debug('pd-petr-mapper.resolveCityInternalId', 'Could not resolve city for IBGE code ' + ibgeCode + ' — trying municipio+uf.');
-            }
-
-            if (json.municipio && uf) {
-                return lookupCityInternalIdByNameAndUf(json.municipio, uf);
-            }
-
-            log.debug('pd-petr-mapper.resolveCityInternalId', 'No codigo_municipio_ibge nor municipio/uf in response — leaving City blank.');
-            return null;
-        }
-
-        function lookupCityInternalIdByNameAndUf(name, uf) {
-            if (!name || !uf) return null;
-            try {
-                var formulas = constantsModule.ENTITY.CITY_LOOKUP.NAME_FORMULAS;
-                var normalizedTarget = normalizeForCompare(name);
-
-                var candidates = searchDataUtil.run({
-                    type: constantsModule.ENTITY.CITY_LOOKUP.RECORD_TYPE,
-                    fields: {
-                        internalId: constantsModule.ENTITY.CITY_LOOKUP.FIELDS.internalId,
-                        cityName: { name: 'formulatext', formula: formulas.NAME }
-                    },
-                    filters: [
-                        searchDataUtil.formulaFilter(formulas.UF, 'is', uf),
-                        'AND',
-                        searchDataUtil.formulaFilter(formulas.NAME, 'startswith', normalizedTarget.charAt(0))
-                    ]
-                });
-
-                var match = candidates.filter(function (candidate) {
-                    return normalizeForCompare(candidate.cityName) === normalizedTarget;
-                })[0];
-
-                if (!match) {
-                    log.debug('pd-petr-mapper.lookupCityInternalIdByNameAndUf', 'No ' + constantsModule.ENTITY.CITY_LOOKUP.RECORD_TYPE + ' match for "' + name + '" / ' + uf);
-                    return null;
-                }
-
-                return match.internalId;
-            } catch (e) {
-                log.error('pd-petr-mapper.lookupCityInternalIdByNameAndUf', e);
+            if (!ibgeCode && !(json.municipio && uf)) {
+                log.debug('pd-petr-mapper.resolveCityInternalId', 'No codigo_municipio_ibge nor municipio/uf in response — leaving City blank.');
                 return null;
             }
-        }
 
-        function normalizeForCompare(str) {
-            if (!str) return '';
-            var stripped = typeof str.normalize === 'function'
-                ? str.normalize('NFD').replace(/[^\x00-\x7F]/g, '')
-                : str;
-            return stripped.toLowerCase().trim();
+            return dataLookupGateway.requestData(LOOKUP_ACTIONS.FIND_CITY, {
+                ibgeCode: ibgeCode,
+                name: json.municipio,
+                uf: uf
+            });
         }
 
         function fieldExists(currentRecord, fieldId) {
@@ -370,22 +398,7 @@ define(
 
         function lookupTaxRegimeIdByLabel(label) {
             if (!label) return null;
-            try {
-                var result = searchDataUtil.first({
-                    type: constantsModule.ENTITY.TAX_REGIME_LOOKUP.RECORD_TYPE,
-                    fields: constantsModule.ENTITY.TAX_REGIME_LOOKUP.FIELDS,
-                    filters: [[constantsModule.ENTITY.TAX_REGIME_LOOKUP.FIELDS.name.name, 'is', label]]
-                });
-
-                if (!result) {
-                    log.debug('pd-petr-mapper.lookupTaxRegimeIdByLabel', 'No ' + constantsModule.ENTITY.TAX_REGIME_LOOKUP.RECORD_TYPE + ' match for label "' + label + '"');
-                    return null;
-                }
-                return result.internalId;
-            } catch (e) {
-                log.error('pd-petr-mapper.lookupTaxRegimeIdByLabel', e);
-                return null;
-            }
+            return dataLookupGateway.requestData(LOOKUP_ACTIONS.FIND_TAX_REGIME, { label: label });
         }
 
         function resolveTaxRegimeLabel(json) {
@@ -430,7 +443,9 @@ define(
 
         return {
             setFields: setFields,
-            insertAddress: insertAddress
+            insertAddress: insertAddress,
+            buildMapOptions: buildMapOptions,
+            findAddressState: findAddressState
         };
     }
 );

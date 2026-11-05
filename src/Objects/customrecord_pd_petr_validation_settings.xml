@@ -50,7 +50,7 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_enable_lookup_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, ao salvar um cadastro (criação ou edição) com CNPJ ou CPF válido, o sistema consulta automaticamente os provedores (ReceitaWS/Hub do Desenvolvedor) para enriquecer os dados cadastrais. Para CPF, exige também "Consultar CPF (Hub)" marcado.</help>
+      <help>Quando marcado, ao salvar um cadastro (criação ou edição) com CNPJ ou CPF válido, o sistema consulta automaticamente os provedores marcados em "Hierarquia da Consulta de CNPJ" (ReceitaWS → Hub do Desenvolvedor → DirectD) para enriquecer os dados cadastrais. Para CPF, exige também "Consultar CPF (Hub)" marcado.</help>
       <label>Consulta Automática de CPF/CNPJ</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -58,7 +58,7 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_enable_cnpj_btn_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, exibe o botão de consulta no formulário de Customer/Job/Vendor, permitindo a consulta manual à Receita a qualquer momento. O botão aparece como "Consultar CPF/CNPJ" quando "Consultar CPF (Hub)" está marcado, e como "Consultar CNPJ" quando não está.</help>
+      <help>Quando marcado, exibe o botão de consulta no formulário de Customer/Job/Vendor, para consulta manual a qualquer momento. CNPJ é consultado pelos provedores marcados em "Hierarquia da Consulta de CNPJ", na ordem ReceitaWS → Hub do Desenvolvedor → DirectD. CPF é consultado sempre na Hub, independente da hierarquia, e exige "Consultar CPF (Hub)". O botão aparece como "Consultar CPF/CNPJ" quando "Consultar CPF (Hub)" está marcado, e como "Consultar CNPJ" quando não está. Os botões próprios da DirectD são configurados no grupo DirectD.</help>
       <label>Botão "Consultar CPF/CNPJ"</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -67,7 +67,7 @@
       <accesslevel>2</accesslevel>
       <defaultchecked>F</defaultchecked>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, a consulta de CNPJ pela Hub do Desenvolvedor também traz a Inscrição Estadual da empresa. A Inscrição Estadual vem na mesma consulta, sem créditos adicionais. Esta opção não é afetada por "Atualizar Todos os Campos" — precisa ser marcada individualmente. Não tem efeito quando a consulta é respondida pelo ReceitaWS, que não retorna Inscrição Estadual.</help>
+      <help>Quando marcado, a consulta de CNPJ pela Hub do Desenvolvedor também traz a Inscrição Estadual da empresa. A Inscrição Estadual vem na mesma consulta, sem créditos adicionais. Esta opção não é afetada por "Atualizar Todos os Campos" — precisa ser marcada individualmente. Não tem efeito quando a consulta é respondida pelo ReceitaWS, que não retorna Inscrição Estadual. Também não se aplica à DirectD: na hierarquia, a Consulta Completa sempre traz a Inscrição Estadual pelo Sintegra, e CNPJ Plus e CNPJ Básico não trazem.</help>
       <label>Consultar Inscrição Estadual (Hub)</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -132,7 +132,7 @@
     <customrecordcustomfield scriptid="custrecord_pd_petr_vs_upd_all_cb">
       <accesslevel>2</accesslevel>
       <fieldtype>CHECKBOX</fieldtype>
-      <help>Quando marcado, habilita a atualização automática de todos os campos via Receita (ReceitaWS/Hub do Desenvolvedor) e desabilita a seleção individual dos campos abaixo.</help>
+      <help>Quando marcado, habilita a atualização automática de todos os campos com o retorno da consulta (ReceitaWS, Hub do Desenvolvedor ou DirectD) e desabilita a seleção individual dos campos abaixo.</help>
       <label>Atualizar Todos os Campos</label>
       <searchlevel>2</searchlevel>
       <storevalue>T</storevalue>
@@ -205,6 +205,78 @@
       <label>Destinatários</label>
       <searchlevel>2</searchlevel>
       <selectrecordtype>-4</selectrecordtype>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_dd_full_btn_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Adiciona ao Cliente/Fornecedor o botão "Consulta Completa", que consulta o CNPJ na API Cadastro – Pessoa Jurídica – Plus da DirectD e depois no Sintegra – Cadastros Estaduais, na UF retornada pela Plus. Se o CNPJ não for encontrado, consulta a Receita Federal – Pessoa Jurídica e preenche Razão Social, Nome Fantasia, Telefone, e-mail e endereço. Preenchidos no cadastro, conforme as opções "Atualizar ...": Razão Social, Nome Fantasia, Telefone com DDD, Endereço de E-mail, endereço (Logradouro, Número, Complemento, Bairro, CEP, Cidade, UF) e Regime Tributário (por Opção MEI/Opção Simples), mais a Inscrição Estadual do Sintegra (quando o campo estiver vazio). A Cidade usa a Informação do IBGE do Sintegra. A lista completa de campos retornados está na ajuda dos campos "Preço CNPJ Plus (R$)" e "Preço Sintegra (R$)" da Configuração das APIs.</help>
+      <label>Botão Consulta Completa (DirectD)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_dd_plus_btn_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Adiciona ao Cliente/Fornecedor o botão "Consultar CNPJ Plus", que consulta o CNPJ na API Cadastro – Pessoa Jurídica – Plus da DirectD. Se o CNPJ não for encontrado, consulta a Receita Federal – Pessoa Jurídica e preenche Razão Social, Nome Fantasia, Telefone, e-mail e endereço. Preenchidos no cadastro, conforme as opções "Atualizar ...": Razão Social, Nome Fantasia, Telefone com DDD, Endereço de E-mail, endereço (Logradouro, Número, Complemento, Bairro, CEP, Cidade, UF) e Regime Tributário (por Opção MEI/Opção Simples). A lista completa de campos retornados está na ajuda do campo "Preço CNPJ Plus (R$)" da Configuração das APIs.</help>
+      <label>Botão Consultar CNPJ Plus (DirectD)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_dd_basic_btn_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Adiciona ao Cliente/Fornecedor o botão "Consultar CNPJ Básico", que consulta o CNPJ na API Cadastro – Pessoa Jurídica – Básica da DirectD. É mais barata que a Plus, mas não traz Opção Simples nem Opção MEI. Se o CNPJ não for encontrado, consulta a Receita Federal – Pessoa Jurídica e preenche Razão Social, Nome Fantasia, Telefone, e-mail e endereço. Preenchidos no cadastro, conforme as opções "Atualizar ...": Razão Social, Nome Fantasia, Telefone com DDD, Endereço de E-mail e endereço (Logradouro, Número, Complemento, Bairro, CEP, Cidade, UF). O Regime Tributário fica em branco. A lista completa de campos retornados está na ajuda do campo "Preço CNPJ Básico (R$)" da Configuração das APIs.</help>
+      <label>Botão Consultar CNPJ Básico (DirectD)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_dd_ie_btn_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Adiciona ao Cliente/Fornecedor o botão "Consultar Inscrição Estadual", que consulta o CNPJ no Sintegra – Cadastros Estaduais da DirectD, na UF do endereço do cadastro (preencha o Estado antes de consultar). Preenchido no cadastro: só a Inscrição Estadual (IE ou, sem ela, a inscrição habilitada da mesma UF em Lista de Inscrições Estaduais), quando o campo estiver vazio. A lista completa de campos retornados está na ajuda do campo "Preço Sintegra (R$)" da Configuração das APIs.</help>
+      <label>Botão Consultar Inscrição Estadual (DirectD)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_rws_in_chain_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>T</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Inclui o ReceitaWS como 1ª opção do botão "Consultar CNPJ" e da consulta automática. A ordem é sempre ReceitaWS → Hub do Desenvolvedor → DirectD; desmarcado, a consulta começa pelo próximo provedor marcado. O ReceitaWS também precisa estar habilitado na Configuração das APIs.</help>
+      <label>ReceitaWS na Hierarquia (1º)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_hub_in_chain_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>T</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Inclui a Hub do Desenvolvedor como 2ª opção do botão "Consultar CNPJ" e da consulta automática, usada quando o ReceitaWS não responde ou está desmarcado. Sem saldo ou com a validade vencida, a Hub é pulada e a consulta segue para a DirectD, se marcada. Não afeta a consulta de CPF. A Hub também precisa estar habilitada na Configuração das APIs.</help>
+      <label>Hub do Desenvolvedor na Hierarquia (2º)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_dd_in_chain_cb">
+      <accesslevel>2</accesslevel>
+      <defaultchecked>F</defaultchecked>
+      <fieldtype>CHECKBOX</fieldtype>
+      <help>Inclui a DirectD como 3ª opção do botão "Consultar CNPJ" e da consulta automática, usada quando os provedores anteriores não respondem, estão desmarcados ou sem saldo. Escolha a consulta em "Consulta DirectD na Hierarquia". Não afeta os botões próprios da DirectD. A DirectD também precisa estar habilitada na Configuração das APIs.</help>
+      <label>DirectD na Hierarquia (3º)</label>
+      <searchlevel>2</searchlevel>
+      <storevalue>T</storevalue>
+    </customrecordcustomfield>
+    <customrecordcustomfield scriptid="custrecord_pd_petr_vs_dd_chain_mode_ls">
+      <accesslevel>2</accesslevel>
+      <fieldtype>SELECT</fieldtype>
+      <help>Consulta da DirectD usada quando "DirectD na Hierarquia" está marcado. Consulta Completa: Cadastro – Pessoa Jurídica – Plus + Sintegra, R$ 0,72 por consulta. CNPJ Plus: Cadastro – Pessoa Jurídica – Plus, R$ 0,36. CNPJ Básico: Cadastro – Pessoa Jurídica – Básica, R$ 0,16. Se o CNPJ não for encontrado, a consulta à Receita Federal – Pessoa Jurídica soma R$ 0,36. Valores padrão: o custo registrado segue os preços configurados na Configuração das APIs. Os campos retornados por cada consulta estão na ajuda dos campos "Preço ... (R$)" da Configuração das APIs.</help>
+      <label>Consulta DirectD na Hierarquia</label>
+      <searchlevel>2</searchlevel>
+      <selectrecordtype>[scriptid=customlist_pd_petr_dd_chain_mode]</selectrecordtype>
       <storevalue>T</storevalue>
     </customrecordcustomfield>
   </customrecordcustomfields>

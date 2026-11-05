@@ -20,9 +20,14 @@ define(
             return validationSettingsService.manageFieldChanged(context);
         }
 
+        function saveRecord(context) {
+            return validationSettingsService.manageSaveRecord(context);
+        }
+
         return {
             pageInit: pageInit,
-            fieldChanged: fieldChanged
+            fieldChanged: fieldChanged,
+            saveRecord: saveRecord
         };
     }
 );

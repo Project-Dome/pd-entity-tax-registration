@@ -6,7 +6,7 @@
   <notifyowner>T</notifyowner>
   <notifyuser>F</notifyuser>
   <isinactive>F</isinactive>
-  <description>Desabilita e limpa os campos individuais de atualização quando "Atualizar Todos os Campos" está marcado, no registro PD | PETR | Configuração das Validações.</description>
+  <description>Desabilita e limpa os campos individuais de atualização quando "Atualizar Todos os Campos" está marcado, e "Consulta DirectD na Hierarquia" quando "DirectD na Hierarquia" está desmarcado (exigindo a consulta no save quando está marcado), no registro PD | PETR | Configuração das Validações.</description>
   <scriptdeployments>
     <scriptdeployment scriptid="customdeploy_pd_petr_vs_cl">
       <allemployees>T</allemployees>

@@ -5,7 +5,8 @@
  */
 /*
  * Parte SERVER-ONLY do enriquecimento de entidade: tudo que depende de
- * pd-petr-cnpj-lookup (que por sua vez depende de N/cache, via pd-petr-rate-limiter).
+ * pd-petr-cnpj-lookup (que por sua vez depende de N/cache, via pd-petr-rate-limiter) e de
+ * pd-petr-directd-lookup (N/record/N/search, via pd-petr-credit-usage).
  *
  * Está separado de pd-petr-entity.js de propósito: aquele arquivo é importado também pelo
  * Client Script, e o carregamento de módulos AMD é eager — o navegador tentaria carregar
@@ -13,13 +14,19 @@
  * mesmo sem o cliente jamais chamar estas funções. Só RESTlet e User Event importam este
  * arquivo; o Client Script nunca.
  *
+ * - Modo de consulta (LOOKUP_MODES): DEFAULT usa a hierarquia ReceitaWS → Hub → DirectD
+ *   (pd-petr-cnpj-lookup); DD_FULL, DD_PLUS, DD_BASIC e DD_IE são os botões da DirectD e chamam
+ *   pd-petr-directd-lookup direto. Modo desconhecido ou ausente vira DEFAULT.
  * - fetchCNPJForRecord: ação do RESTlet para o modo view — carrega o record por id, consulta,
- *   preenche e salva no servidor (em view o setValue do cliente não funciona). Prioriza o
- *   aviso de qualidade dos dados; senão, repassa o aviso do preenchimento do endereço.
+ *   preenche e salva no servidor (em view o setValue do cliente não funciona). No DD_IE a UF vem
+ *   do endereço do record carregado. Os avisos (qualidade dos dados, consulta e preenchimento)
+ *   são juntados num só, porque a tela recarrega depois.
  * - fetchCompanyDataForCnpj: ação do RESTlet para create/edit (por CNPJ, sem tocar em record).
- * - manageCsvImport: o CSV Import conta como consulta automática. O enriquecimento não pode
- *   abortar a importação — uma exceção subiria até o beforeSubmit e cancelaria o submit; o
- *   try/catch é defensivo, já que getCompanyData nunca lança.
+ *   No DD_IE a UF chega do Client Script.
+ * - manageCsvImport: o CSV Import conta como consulta automática (sempre DEFAULT). O
+ *   enriquecimento não pode abortar a importação — uma exceção subiria até o beforeSubmit e
+ *   cancelaria o submit; o try/catch é defensivo, já que getCompanyData nunca lança.
+ * - DD_IE não passa pela validação de situação cadastral: o retorno só traz a IE.
  */
 define(
     [
@@ -28,6 +35,7 @@ define(
         './pd-petr-script-parameters',
         './pd-petr-validators',
         './pd-petr-cnpj-lookup',
+        './pd-petr-directd-lookup',
         './pd-petr-mapper',
         './pd-petr-validation-settings'
     ],
@@ -37,10 +45,12 @@ define(
         scriptParametersService,
         validatorsService,
         cnpjLookupService,
+        directdLookupService,
         mapperService,
         validationSettingsService
     ) {
         var FIELDS = constantsModule.ENTITY.FIELDS;
+        var MODES = constantsModule.LOOKUP_MODES;
 
         var MISSING_SETTINGS_MESSAGE = 'Não há registro de Configuração das Validações ativo nesta conta. '
             + 'Crie-o para habilitar a validação e a atualização automática dos dados da entidade. '
@@ -62,6 +72,10 @@ define(
             return !isNullOrEmpty(country) && country === scriptParametersService.getCountryBrazil();
         }
 
+        function normalizeMode(lookupMode) {
+            return MODES[lookupMode] ? lookupMode : MODES.DEFAULT;
+        }
+
         function validateFederalRegistrationFormat(value) {
             var alphanum = digitsOnly(value);
 
@@ -74,7 +88,28 @@ define(
             return null;
         }
 
-        function fetchCNPJForRecord(recordType, id) {
+        function lookup(cnpj, lookupMode, options) {
+            if (lookupMode === MODES.DEFAULT) {
+                return cnpjLookupService.getCompanyData(cnpj, { birthDate: options.birthDate });
+            }
+
+            return directdLookupService.lookup(lookupMode, cnpj, { uf: options.uf });
+        }
+
+        function mergeWarnings(warnings) {
+            var present = warnings.filter(Boolean);
+
+            if (!present.length) return null;
+            if (present.length === 1) return present[0];
+
+            return {
+                title: present[0].title,
+                message: present.map(function (warning) { return warning.message; }).join('<br/><br/>')
+            };
+        }
+
+        function fetchCNPJForRecord(recordType, id, lookupMode) {
+            var mode = normalizeMode(lookupMode);
             var entityRecord = record.load({ type: recordType, id: id, isDynamic: true });
 
             var country = entityRecord.getValue({ fieldId: FIELDS.country.name });
@@ -96,28 +131,31 @@ define(
                 return { success: false, error: MISSING_SETTINGS_MESSAGE };
             }
 
-            var result = cnpjLookupService.getCompanyData(cnpj, {
-                birthDate: entityRecord.getValue({ fieldId: FIELDS.birthDate.name })
+            var result = lookup(cnpj, mode, {
+                birthDate: entityRecord.getValue({ fieldId: FIELDS.birthDate.name }),
+                uf: mode === MODES.DD_IE ? mapperService.findAddressState(entityRecord) : undefined
             });
 
             if (!result.success) {
-                return { success: false, error: result.error };
+                return { success: false, error: result.error, reason: result.reason };
             }
 
-            var validation = validatorsService.validateApiResponse(result.data);
+            var validation = mode === MODES.DD_IE ? { valid: true } : validatorsService.validateApiResponse(result.data);
 
-            var mapResult = mapperService.setFields(entityRecord, result.data);
+            var mapResult = mapperService.setFields(entityRecord, result.data, mapperService.buildMapOptions(result, mode));
             entityRecord.save();
 
-            var warning = !validation.valid
-                ? { title: validation.title, message: validation.message }
-                : (mapResult && mapResult.warning) || null;
+            var warning = mergeWarnings([
+                validation.valid ? null : { title: validation.title, message: validation.message },
+                result.warning,
+                mapResult && mapResult.warning
+            ]);
 
             return { success: true, warning: warning };
         }
 
-        function fetchCompanyDataForCnpj(cnpj, birthDate) {
-            return cnpjLookupService.getCompanyData(cnpj, { birthDate: birthDate });
+        function fetchCompanyDataForCnpj(cnpj, birthDate, lookupMode, uf) {
+            return lookup(cnpj, normalizeMode(lookupMode), { birthDate: birthDate, uf: uf });
         }
 
         function manageCsvImport(newRecord) {
@@ -160,7 +198,7 @@ define(
                     return;
                 }
 
-                mapperService.setFields(newRecord, result.data);
+                mapperService.setFields(newRecord, result.data, mapperService.buildMapOptions(result, MODES.DEFAULT));
 
             } catch (e) {
 

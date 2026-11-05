@@ -8,16 +8,22 @@
  * O modo do formulário é lido no clique do botão (URL + id do record), e não no pageInit:
  * context.mode do pageInit nunca vale "view" (só create/copy/edit), e o pageInit sequer roda
  * em modo View.
+ *
+ * Uma função de clique por botão: "Consultar CNPJ" (fetchCNPJ, modo DEFAULT = hierarquia) e os
+ * botões da DirectD (fetchDirectd*, modos DD_*), todas via entityService.fetchCNPJ.
  */
 define(
     [
         'N/currentRecord',
+        '../modules/pd-petr-constants',
         '../service/pd-petr-entity'
     ],
     function (
         currentRecord,
+        constantsModule,
         entityService
     ) {
+        var LOOKUP_MODES = constantsModule.LOOKUP_MODES;
 
         function pageInit(context) {
             return entityService.managePageInit(context);
@@ -42,9 +48,29 @@ define(
             return hasEditParam ? 'edit' : 'view';
         }
 
-        function fetchCNPJ() {
+        function runLookup(lookupMode) {
             var rec = currentRecord.get();
-            entityService.fetchCNPJ(rec, getRecordMode(rec));
+            entityService.fetchCNPJ(rec, getRecordMode(rec), lookupMode);
+        }
+
+        function fetchCNPJ() {
+            runLookup(LOOKUP_MODES.DEFAULT);
+        }
+
+        function fetchDirectdFull() {
+            runLookup(LOOKUP_MODES.DD_FULL);
+        }
+
+        function fetchDirectdPlus() {
+            runLookup(LOOKUP_MODES.DD_PLUS);
+        }
+
+        function fetchDirectdBasic() {
+            runLookup(LOOKUP_MODES.DD_BASIC);
+        }
+
+        function fetchDirectdStateReg() {
+            runLookup(LOOKUP_MODES.DD_IE);
         }
 
         return {
@@ -52,7 +78,11 @@ define(
             fieldChanged: fieldChanged,
             validateField: validateField,
             saveRecord: saveRecord,
-            fetchCNPJ: fetchCNPJ
+            fetchCNPJ: fetchCNPJ,
+            fetchDirectdFull: fetchDirectdFull,
+            fetchDirectdPlus: fetchDirectdPlus,
+            fetchDirectdBasic: fetchDirectdBasic,
+            fetchDirectdStateReg: fetchDirectdStateReg
         };
     }
 );

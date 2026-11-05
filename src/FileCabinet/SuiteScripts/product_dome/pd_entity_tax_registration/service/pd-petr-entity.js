@@ -30,6 +30,15 @@
  * - CPF (11 caracteres) usa o mesmo botão e o mesmo disparo automático do save, mas só quando
  *   "Consultar CPF (Hub)" está marcado — desmarcado, o botão avisa sem chamar o servidor e o
  *   save não consulta (cada consulta de CPF custa de 1 a 15 créditos na Hub).
+ * - Duplicidade de CNPJ/CPF e Registro Internacional: a busca em Customer/Vendor vai pelo
+ *   Suitelet anônimo de busca (pd-petr-data-lookup-gateway), porque o papel do usuário pode
+ *   não enxergar todos os cadastros. Falha do Suitelet conta como "sem duplicidade" (mesmo
+ *   comportamento de antes para erro de busca) — o save não fica bloqueado por indisponibilidade.
+ * - fetchCNPJ recebe o modo de consulta (LOOKUP_MODES): o botão "Consultar CNPJ" e o autofetch do
+ *   save usam DEFAULT (a hierarquia ReceitaWS → Hub → DirectD é resolvida no servidor); os botões
+ *   da DirectD passam DD_FULL, DD_PLUS, DD_BASIC ou DD_IE. Os modos da DirectD só aceitam CNPJ.
+ *   No DD_IE a UF do endereço é lida aqui (create/edit) e vai ao RESTlet; sem UF, avisa sem
+ *   chamar o servidor. O DD_IE não marca lastFetchedDigits, para não impedir o autofetch do save.
  */
 define(
     [
@@ -40,11 +49,10 @@ define(
         'N/ui/message',
         '../modules/pd-petr-constants',
         './pd-petr-script-parameters',
-        './pd-petr-vendor',
         './pd-petr-validators',
         './pd-petr-mapper',
         './pd-petr-validation-settings',
-        '../util/pd-petr-search-data'
+        './pd-petr-data-lookup-gateway'
     ],
     function (
         error,
@@ -54,14 +62,17 @@ define(
         message,
         constantsModule,
         scriptParametersService,
-        vendorService,
         validatorsService,
         mapperService,
         validationSettingsService,
-        searchDataUtil
+        dataLookupGateway
     ) {
         var FIELDS = constantsModule.ENTITY.FIELDS;
         var TYPE_LIST = constantsModule.ENTITY.TYPE_LIST;
+        var LOOKUP_MODES = constantsModule.LOOKUP_MODES;
+
+        var DIRECTD_CNPJ_ONLY_MESSAGE = 'As consultas da DirectD atendem apenas CNPJ.';
+        var MISSING_UF_MESSAGE = 'Preencha o endereço (Estado) do cadastro antes de consultar a Inscrição Estadual.';
 
         var lastFetchedDigits = null;
 
@@ -131,29 +142,12 @@ define(
             return null;
         }
 
-        function searchEntityDuplicate(field, value) {
-            try {
-                return searchDataUtil.first({
-                    type: constantsModule.ENTITY.TYPE,
-                    fields: { internalId: FIELDS.internalId },
-                    filters: [
-                        [FIELDS.type.name, 'anyof', [TYPE_LIST.CUSTOMER_AND_JOB]],
-                        'AND',
-                        [field.name, 'is', value]
-                    ]
-                });
-            } catch (e) {
-                log.error('pd-petr-entity.searchEntityDuplicate', e);
-                return null;
-            }
-        }
-
         function findDuplicate(field, value, entityRecord) {
-            var isVendor = entityRecord.type === TYPE_LIST.VENDOR.toLowerCase();
-
-            var match = isVendor
-                ? (field === FIELDS.cnpj ? vendorService.getByCnpjOrCpf(value) : vendorService.getByInternational(value))
-                : searchEntityDuplicate(field, value);
+            var match = dataLookupGateway.requestData(constantsModule.DATA_LOOKUP.ACTIONS.FIND_DUPLICATE, {
+                recordType: entityRecord.type,
+                fieldKey: field === FIELDS.cnpj ? 'cnpj' : 'international',
+                value: value
+            });
 
             if (!match) return null;
             if (String(match.internalId) === String(entityRecord.id)) return null;
@@ -318,9 +312,13 @@ define(
             return true;
         }
 
-        function fetchCNPJ(currentRecord, mode) {
+        function fetchCNPJ(currentRecord, mode, lookupMode) {
+            var activeLookupMode = lookupMode || LOOKUP_MODES.DEFAULT;
+            var isDirectdMode = activeLookupMode !== LOOKUP_MODES.DEFAULT;
+            var isStateRegistrationMode = activeLookupMode === LOOKUP_MODES.DD_IE;
+
             if (mode === 'view') {
-                fetchCNPJViaRestlet(currentRecord);
+                fetchCNPJViaRestlet(currentRecord, activeLookupMode);
                 return;
             }
 
@@ -351,16 +349,32 @@ define(
                 return;
             }
 
-            if (digitsOnly(value).length === 11 && !settings.enableCpfLookup) {
+            if (isDirectdMode && digitsOnly(value).length !== 14) {
+                dialog.alert({ title: 'Consulta DirectD', message: DIRECTD_CNPJ_ONLY_MESSAGE });
+                return;
+            }
+
+            if (!isDirectdMode && digitsOnly(value).length === 11 && !settings.enableCpfLookup) {
                 dialog.alert({ title: 'Consulta de CPF desabilitada', message: CPF_LOOKUP_DISABLED_MESSAGE });
                 return;
+            }
+
+            var uf;
+
+            if (isStateRegistrationMode) {
+                uf = mapperService.findAddressState(currentRecord);
+
+                if (!uf) {
+                    dialog.alert({ title: 'Consultar Inscrição Estadual', message: MISSING_UF_MESSAGE });
+                    return;
+                }
             }
 
             var loadingMessage = showLoadingMessage();
 
             try {
                 var birthDate = formatBirthDate(currentRecord.getValue({ fieldId: FIELDS.birthDate.name }));
-                var result = fetchCompanyDataViaRestlet(value, birthDate);
+                var result = fetchCompanyDataViaRestlet(value, birthDate, activeLookupMode, uf);
 
                 if (!result.success && result.reason === 'BIRTH_DATE_REQUIRED') {
                     dialog.alert({ title: 'Data de Nascimento necessária', message: result.error });
@@ -375,13 +389,22 @@ define(
                     return;
                 }
 
-                var validation = validatorsService.validateApiResponse(result.data);
+                var validation = isStateRegistrationMode ? { valid: true } : validatorsService.validateApiResponse(result.data);
                 if (!validation.valid) {
                     dialog.alert({ title: validation.title, message: validation.message });
                 }
 
-                var mapResult = mapperService.setFields(currentRecord, result.data);
-                lastFetchedDigits = digitsOnly(value);
+                var mapResult = mapperService.setFields(
+                    currentRecord,
+                    result.data,
+                    mapperService.buildMapOptions(result, activeLookupMode)
+                );
+
+                if (!isStateRegistrationMode) lastFetchedDigits = digitsOnly(value);
+
+                if (result.warning) {
+                    dialog.alert({ title: result.warning.title, message: result.warning.message });
+                }
 
                 if (mapResult && mapResult.warning) {
                     dialog.alert({ title: mapResult.warning.title, message: mapResult.warning.message });
@@ -400,7 +423,7 @@ define(
             return (day < 10 ? '0' : '') + day + '/' + (month < 10 ? '0' : '') + month + '/' + value.getFullYear();
         }
 
-        function fetchCompanyDataViaRestlet(cnpj, birthDate) {
+        function fetchCompanyDataViaRestlet(cnpj, birthDate, lookupMode, uf) {
             try {
                 var restletUrl = url.resolveScript({
                     scriptId: constantsModule.SCRIPTS.RESTLET.SCRIPT_ID,
@@ -411,7 +434,7 @@ define(
                 var response = https.post({
                     url: restletUrl,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cnpj: cnpj, birthDate: birthDate })
+                    body: JSON.stringify({ cnpj: cnpj, birthDate: birthDate, mode: lookupMode, uf: uf })
                 });
 
                 if (response.code !== 200) {
@@ -452,7 +475,7 @@ define(
             }
         }
 
-        function fetchCNPJViaRestlet(currentRecord) {
+        function fetchCNPJViaRestlet(currentRecord, lookupMode) {
 
             log.debug({
                 title: 'pd-petr-entity.fetchCNPJViaRestlet',
@@ -476,7 +499,8 @@ define(
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         recordType: currentRecord.type,
-                        id: currentRecord.id
+                        id: currentRecord.id,
+                        mode: lookupMode
                     })
                 });
 

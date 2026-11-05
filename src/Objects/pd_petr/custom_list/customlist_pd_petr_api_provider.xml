@@ -1,0 +1,16 @@
+<customlist scriptid="customlist_pd_petr_api_provider">
+  <description>Provedores pagos de consulta de CNPJ/CPF do módulo PD | PETR (Entity Tax Registration). Usada no registro PD | PETR | Consumo de Créditos das APIs.</description>
+  <isinactive>F</isinactive>
+  <isordered>T</isordered>
+  <name>PD | PETR | Provedor de API</name>
+  <customvalues>
+    <customvalue scriptid="val_pd_petr_ap_hub">
+      <isinactive>F</isinactive>
+      <value>Hub do Desenvolvedor</value>
+    </customvalue>
+    <customvalue scriptid="val_pd_petr_ap_directd">
+      <isinactive>F</isinactive>
+      <value>DirectD</value>
+    </customvalue>
+  </customvalues>
+</customlist>

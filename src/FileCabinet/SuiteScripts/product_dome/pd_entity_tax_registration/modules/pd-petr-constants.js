@@ -12,6 +12,26 @@
  * VALIDATION_SETTINGS.FIELDS.enableStateRegLookup / enableCpfLookup: chaves propositalmente sem
  * prefixo "update", para ficar fora do master switch "Atualizar Todos os Campos" — consultar
  * Inscrição Estadual ou CPF na Hub precisa ser uma escolha explícita (o CPF consome créditos).
+ *
+ * VALIDATION_SETTINGS.PRIVATE_FIELD_KEYS: campos que o Suitelet anônimo de busca
+ * (DATA_LOOKUP) nunca devolve — remetente/destinatários do relatório e quem deu ciência da
+ * cobrança. Nenhum consumidor de pd-petr-validation-settings.get() usa esses campos (o
+ * relatório agendado faz a própria busca).
+ *
+ * DATA_LOOKUP.DUPLICATE_FIELD_KEYS: chaves de ENTITY.FIELDS aceitas na ação FIND_DUPLICATE —
+ * lista fechada para o endpoint público não virar busca por campo arbitrário.
+ *
+ * VALIDATION_SETTINGS.FIELDS dos botões e da hierarquia (enableDirectd*, *InChain,
+ * directdChainMode): chaves sem prefixo "update", para ficarem fora de "Atualizar Todos os
+ * Campos". Não são sigilosas — o Suitelet anônimo de busca as devolve ao User Event.
+ *
+ * CREDIT_USAGE: registro único de consumo das APIs pagas (docs/specs/directd-integration.md
+ * §4.5). HUB_EXPECTED_CREDITS é o custo previsto de cada chamada à Hub, usado só para checar o
+ * saldo antes de chamar; o registro grava o "consumed" real. CNPJ = 1 crédito, com ou sem IE
+ * (conferido no saldo da Hub — hub-credit-control.md, Notas de implementação).
+ *
+ * DIRECTD.CHAIN_MODE_BY_LABEL: o valor de "Consulta DirectD na Hierarquia" é comparado pelo texto
+ * da lista customlist_pd_petr_dd_chain_mode (mesmo padrão de REPORT_FREQUENCY).
  */
 define([], function () {
 
@@ -22,7 +42,30 @@ define([], function () {
             RECEITAWS_BASE_URL: 'https://receitaws.com.br/v1/cnpj/',
             HUB_CNPJ_BASE_URL: 'https://ws.hubdodesenvolvedor.com.br/v2/cnpj/',
             HUB_CPF_BASE_URL: 'https://ws.hubdodesenvolvedor.com.br/v2/cpf/',
-            HUB_NAME_CPF_BASE_URL: 'https://ws.hubdodesenvolvedor.com.br/v2/nome_cpf/'
+            HUB_NAME_CPF_BASE_URL: 'https://ws.hubdodesenvolvedor.com.br/v2/nome_cpf/',
+            DIRECTD_BASE_URL: 'https://apiv3.directd.com.br/api/'
+        },
+
+        LOOKUP_MODES: {
+            DEFAULT: 'DEFAULT',
+            DD_FULL: 'DD_FULL',
+            DD_PLUS: 'DD_PLUS',
+            DD_BASIC: 'DD_BASIC',
+            DD_IE: 'DD_IE'
+        },
+
+        DIRECTD: {
+            ENDPOINTS: {
+                PLUS: 'CadastroPessoaJuridicaPlus',
+                BASIC: 'CadastroPessoaJuridica',
+                SINTEGRA: 'Sintegra',
+                FEDERAL_REVENUE: 'ReceitaFederalPessoaJuridica'
+            },
+            CHAIN_MODE_BY_LABEL: {
+                'Consulta Completa': 'DD_FULL',
+                'CNPJ Plus': 'DD_PLUS',
+                'CNPJ Básico': 'DD_BASIC'
+            }
         },
 
         ENTITY: {
@@ -128,8 +171,36 @@ define([], function () {
                 updateEmail: { name: 'custrecord_pd_petr_vs_upd_email_cb', isCheckbox: true },
                 updateTaxRegime: { name: 'custrecord_pd_petr_vs_upd_tax_regime_cb', isCheckbox: true },
                 updateAddress: { name: 'custrecord_pd_petr_vs_upd_address_cb', isCheckbox: true },
-                updateAll: { name: 'custrecord_pd_petr_vs_upd_all_cb', isCheckbox: true }
-            }
+                updateAll: { name: 'custrecord_pd_petr_vs_upd_all_cb', isCheckbox: true },
+                enableDirectdFullButton: { name: 'custrecord_pd_petr_vs_dd_full_btn_cb', isCheckbox: true },
+                enableDirectdPlusButton: { name: 'custrecord_pd_petr_vs_dd_plus_btn_cb', isCheckbox: true },
+                enableDirectdBasicButton: { name: 'custrecord_pd_petr_vs_dd_basic_btn_cb', isCheckbox: true },
+                enableDirectdStateRegButton: { name: 'custrecord_pd_petr_vs_dd_ie_btn_cb', isCheckbox: true },
+                rwsInChain: { name: 'custrecord_pd_petr_vs_rws_in_chain_cb', isCheckbox: true },
+                hubInChain: { name: 'custrecord_pd_petr_vs_hub_in_chain_cb', isCheckbox: true },
+                directdInChain: { name: 'custrecord_pd_petr_vs_dd_in_chain_cb', isCheckbox: true },
+                directdChainMode: { name: 'custrecord_pd_petr_vs_dd_chain_mode_ls', isSelect: true }
+            },
+            PRIVATE_FIELD_KEYS: [
+                'internalId',
+                'autoBirthDateAckAt',
+                'autoBirthDateAckBy',
+                'reportEmail',
+                'reportFrequency',
+                'reportLastSent',
+                'emailSender',
+                'emailRecipients'
+            ]
+        },
+
+        DATA_LOOKUP: {
+            ACTIONS: {
+                GET_VALIDATION_SETTINGS: 'getValidationSettings',
+                FIND_CITY: 'findCity',
+                FIND_TAX_REGIME: 'findTaxRegime',
+                FIND_DUPLICATE: 'findDuplicate'
+            },
+            DUPLICATE_FIELD_KEYS: ['cnpj', 'international']
         },
 
         API_SETTINGS: {
@@ -142,19 +213,43 @@ define([], function () {
                 hubEnabled: { name: 'custrecord_pd_petr_as_hub_enabled_cb', isCheckbox: true },
                 hubToken: { name: 'custrecord_pd_petr_as_hub_token_ds' },
                 hubMonthlyCredits: { name: 'custrecord_pd_petr_as_hub_credits_nu' },
-                hubRenewalDay: { name: 'custrecord_pd_petr_as_hub_renewal_day_nu' }
+                hubRenewalDay: { name: 'custrecord_pd_petr_as_hub_renewal_day_nu' },
+                hubLoadedCredits: { name: 'custrecord_pd_petr_as_hub_avail_nu' },
+                hubBalance: { name: 'custrecord_pd_petr_as_hub_balance_nu', excludeFromSearch: true },
+                hubCountStart: { name: 'custrecord_pd_petr_as_hub_start_dt' },
+                hubValidTo: { name: 'custrecord_pd_petr_as_hub_valid_to_dt' },
+                ddEnabled: { name: 'custrecord_pd_petr_as_dd_enabled_cb', isCheckbox: true },
+                ddToken: { name: 'custrecord_pd_petr_as_dd_token_ds' },
+                ddPricePlus: { name: 'custrecord_pd_petr_as_dd_prc_plus_cr' },
+                ddPriceBasic: { name: 'custrecord_pd_petr_as_dd_prc_basic_cr' },
+                ddPriceSintegra: { name: 'custrecord_pd_petr_as_dd_prc_sint_cr' },
+                ddPriceFederalRevenue: { name: 'custrecord_pd_petr_as_dd_prc_rfb_cr' },
+                ddLoadedCredits: { name: 'custrecord_pd_petr_as_dd_avail_cr' },
+                ddBalance: { name: 'custrecord_pd_petr_as_dd_balance_cr', excludeFromSearch: true },
+                ddCountStart: { name: 'custrecord_pd_petr_as_dd_start_dt' }
             }
         },
 
-        HUB_CREDIT_USAGE: {
-            TYPE: 'customrecord_pd_petr_hub_credit_usage',
+        CREDIT_USAGE: {
+            TYPE: 'customrecord_pd_petr_credit_usage',
+            PROVIDER_LIST: 'customlist_pd_petr_api_provider',
             FIELDS: {
                 internalId: { name: 'internalid' },
                 created: { name: 'created' },
-                queryType: { name: 'custrecord_pd_petr_hcu_query_type_ds' },
-                document: { name: 'custrecord_pd_petr_hcu_document_ds' },
-                credits: { name: 'custrecord_pd_petr_hcu_credits_nu' },
-                user: { name: 'custrecord_pd_petr_hcu_user_ls', isSelect: true }
+                provider: { name: 'custrecord_pd_petr_cu_provider_ls', isSelect: true },
+                queryType: { name: 'custrecord_pd_petr_cu_query_type_ds' },
+                document: { name: 'custrecord_pd_petr_cu_document_ds' },
+                credits: { name: 'custrecord_pd_petr_cu_credits_nu' },
+                cost: { name: 'custrecord_pd_petr_cu_cost_cr' },
+                queryUid: { name: 'custrecord_pd_petr_cu_query_uid_ds' },
+                user: { name: 'custrecord_pd_petr_cu_user_ls', isSelect: true },
+                apiResponse: { name: 'custrecord_pd_petr_cu_api_response_lt' },
+                hubBalance: { name: 'custrecord_pd_petr_cu_hub_balance_nu' },
+                directdBalance: { name: 'custrecord_pd_petr_cu_dd_balance_cr' }
+            },
+            PROVIDERS: {
+                HUB: { label: 'Hub do Desenvolvedor' },
+                DIRECTD: { label: 'DirectD' }
             },
             QUERY_TYPES: {
                 CNPJ: 'CNPJ',
@@ -162,7 +257,17 @@ define([], function () {
                 CPF_HUB_DATABASE: 'CPF (base Hub)',
                 CPF_FEDERAL_REVENUE: 'CPF (Receita Federal)',
                 BIRTH_DATE: 'Data de Nascimento (nome_cpf)',
-                CPF_DATABASE_CHECK: 'Verificação de base do CPF'
+                CPF_DATABASE_CHECK: 'Verificação de base do CPF',
+                DIRECTD_PLUS: 'CNPJ Plus',
+                DIRECTD_BASIC: 'CNPJ Básico',
+                DIRECTD_SINTEGRA: 'Sintegra',
+                DIRECTD_FEDERAL_REVENUE: 'Receita Federal PJ'
+            },
+            HUB_EXPECTED_CREDITS: {
+                CNPJ: 1,
+                CPF_HUB_DATABASE: 1,
+                CPF_FEDERAL_REVENUE: 5,
+                BIRTH_DATE: 10
             }
         },
 
@@ -178,6 +283,10 @@ define([], function () {
             RESTLET: {
                 SCRIPT_ID: 'customscript_pd_petr_tax_reg_rl',
                 DEPLOY_ID: 'customdeploy_pd_petr_tax_reg_rl'
+            },
+            DATA_LOOKUP_SUITELET: {
+                SCRIPT_ID: 'customscript_pd_petr_data_lookup_sl',
+                DEPLOY_ID: 'customdeploy_pd_petr_data_lookup_sl'
             }
         },
 
@@ -186,7 +295,14 @@ define([], function () {
             LABEL: 'Consultar CNPJ',
             LABEL_WITH_CPF: 'Consultar CPF/CNPJ',
             FUNCTION: 'fetchCNPJ'
-        }
+        },
+
+        DIRECTD_BUTTONS: [
+            { ID: 'custpage_pd_petr_dd_full_bt', LABEL: 'Consulta Completa', FUNCTION: 'fetchDirectdFull', SETTING: 'enableDirectdFullButton' },
+            { ID: 'custpage_pd_petr_dd_plus_bt', LABEL: 'Consultar CNPJ Plus', FUNCTION: 'fetchDirectdPlus', SETTING: 'enableDirectdPlusButton' },
+            { ID: 'custpage_pd_petr_dd_basic_bt', LABEL: 'Consultar CNPJ Básico', FUNCTION: 'fetchDirectdBasic', SETTING: 'enableDirectdBasicButton' },
+            { ID: 'custpage_pd_petr_dd_ie_bt', LABEL: 'Consultar Inscrição Estadual', FUNCTION: 'fetchDirectdStateReg', SETTING: 'enableDirectdStateRegButton' }
+        ]
 
     };
 });

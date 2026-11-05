@@ -18,6 +18,8 @@
  *   dia ainda não chegou) e termina na véspera da próxima renovação. Sem dia configurado, usa 1.
  * - Os destinatários são funcionários: email.send recebe os internal IDs e usa o e-mail do
  *   cadastro de cada um.
+ * - O consumo vem do registro único customrecord_pd_petr_credit_usage, filtrado pelo provedor Hub
+ *   (docs/specs/directd-integration.md §4.5).
  */
 define(
     [
@@ -27,7 +29,7 @@ define(
         '../modules/pd-petr-constants',
         '../util/pd-petr-search-data',
         './pd-petr-api-settings',
-        './pd-petr-hub-credit-usage'
+        './pd-petr-credit-usage'
     ],
     function (
         email,
@@ -73,7 +75,7 @@ define(
 
             var apiSettings = apiSettingsService.get() || {};
             var cycle = getCurrentCycle(today, Number(apiSettings.hubRenewalDay) || 1);
-            var summary = creditUsageService.summarize(cycle.start, cycle.end);
+            var summary = creditUsageService.summarize(cycle.start, cycle.end, 'HUB');
             var monthlyCredits = Number(apiSettings.hubMonthlyCredits) || 0;
 
             email.send({
