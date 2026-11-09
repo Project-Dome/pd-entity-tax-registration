@@ -1,0 +1,485 @@
+<!-- Cabeçalho -->
+<header class="bg-white border-bottom">
+    <div class="container-fluid py-3">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <a class="btn btn-outline-primary" href="#" id="home-link" title="Voltar ao NetSuite">
+                <i class="bi bi-house-door me-1"></i> NetSuite
+            </a>
+            <span class="divider"></span>
+            <div class="me-auto">
+                <h1 class="h4 mb-0 fw-semibold">Cadastro Fiscal — Painel</h1>
+            </div>
+            <div class="d-flex align-items-center gap-2 ps-3 border-start">
+                <span class="avatar" id="user-avatar">--</span>
+                <span class="d-flex flex-column lh-sm">
+                    <span class="fw-semibold small" id="user-name">—</span>
+                    <small class="text-muted" id="user-role"></small>
+                </span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="container-fluid py-4" style="padding-bottom:140px">
+
+    <!-- Menu (abas) -->
+    <ul class="nav nav-tabs petr-tabs mb-4" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-usage" data-bs-toggle="tab" data-bs-target="#pane-usage"
+                type="button" role="tab"><i class="bi bi-graph-up ic-amber me-1"></i> Consumo de Créditos</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-entities" data-bs-toggle="tab" data-bs-target="#pane-entities"
+                type="button" role="tab"><i class="bi bi-people-fill ic-blue me-1"></i> Clientes e Fornecedores</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-providers" data-bs-toggle="tab" data-bs-target="#pane-providers"
+                type="button" role="tab"><i class="bi bi-info-circle-fill ic-purple me-1"></i> Retorno das APIs</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- Aba: Consumo de Créditos -->
+        <div class="tab-pane fade show active" id="pane-usage" role="tabpanel">
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="eyebrow mb-3"><i class="bi bi-funnel-fill me-1"></i> Filtros</div>
+                    <form id="usage-filter-form">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label" for="usage-start"><i class="bi bi-calendar-event ic-green me-1"></i>Data (De)</label>
+                                <input type="date" class="form-control" id="usage-start">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="usage-end"><i class="bi bi-calendar-check ic-green me-1"></i>Data (Até)</label>
+                                <input type="date" class="form-control" id="usage-end">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="usage-provider"><i class="bi bi-hdd-network ic-purple me-1"></i>Provedor</label>
+                                <select class="form-select" id="usage-provider">
+                                    <option value="">Todos</option>
+                                    <option value="HUB">Hub do Desenvolvedor</option>
+                                    <option value="DIRECTD">DirectD</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="usage-document"><i class="bi bi-person-vcard ic-blue me-1"></i>CPF/CNPJ</label>
+                                <input type="text" class="form-control" id="usage-document" placeholder="Contém...">
+                            </div>
+                        </div>
+                        <hr>
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search me-1"></i> Aplicar
+                            Filtro</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="usage-clear-filter"><i
+                                class="bi bi-eraser-fill ic-orange me-1"></i> Limpar Filtro</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100 kpi-accent">
+                        <div class="card-body">
+                            <div class="eyebrow"><i class="bi bi-coin ic-amber me-1"></i> Créditos Disponíveis (Hub)</div>
+                            <div class="fs-3 fw-bold kpi-value" id="kpi-hub-balance">—</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100 kpi-accent">
+                        <div class="card-body">
+                            <div class="eyebrow"><i class="bi bi-cash-stack ic-green me-1"></i> Créditos Disponíveis (R$)</div>
+                            <div class="fs-3 fw-bold kpi-value" id="kpi-dd-balance">—</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="eyebrow"><i class="bi bi-graph-down-arrow ic-orange me-1"></i> Créditos Hub no período</div>
+                            <div class="fs-3 fw-bold" id="kpi-hub-credits">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="eyebrow"><i class="bi bi-receipt ic-red me-1"></i> Custo DirectD no período</div>
+                            <div class="fs-3 fw-bold" id="kpi-dd-cost">R$ 0,00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="eyebrow"><i class="bi bi-table me-1"></i> Consumo de Créditos das APIs</div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" id="usage-export-csv"><i
+                                class="bi bi-file-earmark-spreadsheet-fill ic-green me-1"></i> Exportar CSV</button>
+                    </div>
+                    <div class="table-responsive petr-table-scroll">
+                        <table class="table table-hover align-middle mb-0 petr-table">
+                            <thead>
+                                <tr>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Data/Hora</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Provedor</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Tipo de Consulta</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">CPF/CNPJ</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold text-end">Créditos</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold text-end">Custo (R$)</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold text-end">Saldo Após</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Usuário</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usage-body">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">Carregando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="usage-prev-page" disabled><i
+                                class="bi bi-chevron-left ic-blue"></i> Anterior</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="usage-next-page" disabled>Próxima
+                            <i class="bi bi-chevron-right ic-blue"></i></button>
+                        <small class="text-muted ms-2" id="usage-page-info"></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aba: Clientes e Fornecedores -->
+        <div class="tab-pane fade" id="pane-entities" role="tabpanel">
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="eyebrow mb-3"><i class="bi bi-funnel-fill me-1"></i> Filtros</div>
+                    <form id="entity-filter-form">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label" for="entity-type"><i class="bi bi-diagram-3-fill ic-purple me-1"></i>Tipo <span class="text-danger">*</span></label>
+                                <select class="form-select" id="entity-type" required>
+                                    <option value="customer">Cliente</option>
+                                    <option value="vendor">Fornecedor</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="entity-name"><i class="bi bi-person-fill ic-blue me-1"></i>Nome</label>
+                                <input type="text" class="form-control" id="entity-name"
+                                    placeholder="Nome, Nome Fantasia ou Razão Social contém...">
+                            </div>
+                        </div>
+                        <hr>
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search me-1"></i> Aplicar
+                            Filtro</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="entity-clear-filter"><i
+                                class="bi bi-eraser-fill ic-orange me-1"></i> Limpar Filtro</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="eyebrow"><i class="bi bi-people-fill ic-blue me-1"></i> Entidades encontradas</div>
+                            <div class="fs-3 fw-bold" id="kpi-entities-total">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="eyebrow"><i class="bi bi-check2-square ic-green me-1"></i> Selecionadas</div>
+                            <div class="fs-3 fw-bold" id="kpi-entities-selected">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100 kpi-accent">
+                        <div class="card-body">
+                            <div class="eyebrow"><i class="bi bi-wallet2 ic-amber me-1"></i> Créditos Disponíveis</div>
+                            <div class="fw-bold kpi-value mt-1" id="kpi-entity-hub-balance">Hub: —</div>
+                            <div class="fw-bold kpi-value" id="kpi-entity-dd-balance">DirectD: —</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="eyebrow"><i class="bi bi-table me-1"></i> Entidades com CPF/CNPJ</div>
+                    </div>
+                    <div class="table-responsive petr-table-scroll">
+                        <table class="table table-hover align-middle mb-0 petr-table petr-table-wide">
+                            <thead>
+                                <tr>
+                                    <th style="width:44px" class="text-center py-3 petr-sticky petr-sticky-check"><input type="checkbox"
+                                            class="form-check-input" id="entity-select-all"></th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold petr-sticky petr-sticky-name">Nome</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">País <span class="text-danger">*</span></th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">CPF/CNPJ</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Razão Social</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Nome Fantasia</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Nome (PF)</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Data de Nascimento</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Inscrição Estadual</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Regime Tributário</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Telefone</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">E-mail</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">CEP</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Logradouro</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Número</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Complemento</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Bairro</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Cidade</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">UF</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Última Alteração</th>
+                                </tr>
+                            </thead>
+                            <tbody id="entity-body">
+                                <tr>
+                                    <td colspan="20" class="text-center text-muted py-4">Use os filtros acima para carregar as
+                                        entidades.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="entity-prev-page" disabled><i
+                                class="bi bi-chevron-left ic-blue"></i> Anterior</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="entity-next-page" disabled>Próxima
+                            <i class="bi bi-chevron-right ic-blue"></i></button>
+                        <small class="text-muted ms-2" id="entity-page-info"></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aba: Retorno das APIs (informativa) -->
+        <div class="tab-pane fade" id="pane-providers" role="tabpanel">
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-4">
+                    <div class="card shadow-sm h-100 provider-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-bank2 ic-green fs-4 me-2"></i>
+                                <h2 class="h5 mb-0 fw-semibold">ReceitaWS</h2>
+                                <span class="badge rounded-pill provider-order ms-auto">1º na hierarquia</span>
+                            </div>
+                            <ul class="small mb-0 ps-3">
+                                <li><b>Consulta:</b> somente CNPJ.</li>
+                                <li><b>Custo:</b> gratuita, com limite de consultas por minuto. Quando o limite
+                                    estoura, a consulta segue para o próximo provedor da hierarquia.</li>
+                                <li><b>Traz:</b> Razão Social, Nome Fantasia, telefone, e-mail, endereço e opção pelo
+                                    Simples/MEI.</li>
+                                <li><b>Não traz:</b> Inscrição Estadual e código IBGE da cidade.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card shadow-sm h-100 provider-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-hdd-network-fill ic-blue fs-4 me-2"></i>
+                                <h2 class="h5 mb-0 fw-semibold">Hub do Desenvolvedor</h2>
+                                <span class="badge rounded-pill provider-order ms-auto">2º na hierarquia</span>
+                            </div>
+                            <ul class="small mb-0 ps-3">
+                                <li><b>CNPJ:</b> 1 crédito, com ou sem Inscrição Estadual (quando "Consultar Inscrição
+                                    Estadual (Hub)" está marcado).</li>
+                                <li><b>CPF:</b> único provedor que consulta CPF — 1 crédito na base da Hub, 5 créditos na
+                                    Receita Federal (exige a data de nascimento) e 10 créditos para buscar a data de
+                                    nascimento.</li>
+                                <li><b>Traz:</b> Razão Social, Nome Fantasia, telefone, e-mail, endereço e Inscrição
+                                    Estadual; no CPF, nome e data de nascimento.</li>
+                                <li><b>Não traz:</b> regime tributário e código IBGE da cidade.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card shadow-sm h-100 provider-card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-lightning-charge-fill ic-orange fs-4 me-2"></i>
+                                <h2 class="h5 mb-0 fw-semibold">DirectD</h2>
+                                <span class="badge rounded-pill provider-order ms-auto">3º na hierarquia</span>
+                            </div>
+                            <ul class="small mb-0 ps-3">
+                                <li><b>Consulta:</b> somente CNPJ. Custo em R$ pelo preço configurado de cada consulta.</li>
+                                <li><b>CNPJ Plus:</b> cadastro completo, com opção pelo Simples/MEI.</li>
+                                <li><b>CNPJ Básico:</b> cadastro sem Simples/MEI.</li>
+                                <li><b>Receita Federal PJ:</b> reserva automática quando o Plus ou o Básico não encontram o
+                                    CNPJ.</li>
+                                <li><b>Sintegra:</b> Inscrição Estadual, código IBGE da cidade e regime de apuração. Usado
+                                    na Consulta Completa (Plus + Sintegra) e na opção Inscrição Estadual.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="eyebrow mb-3"><i class="bi bi-diagram-3-fill me-1"></i> Campo do NetSuite × Provedor</div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0 petr-table provider-table">
+                            <thead>
+                                <tr>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Campo no NetSuite</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold"><i class="bi bi-bank2 ic-green me-1"></i>ReceitaWS</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold"><i class="bi bi-hdd-network-fill ic-blue me-1"></i>Hub</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold"><i class="bi bi-lightning-charge-fill ic-orange me-1"></i>DirectD</th>
+                                    <th class="py-3 px-3 text-uppercase fw-bold">Regra de gravação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="fw-semibold">Razão Social</td>
+                                    <td><code>nome</code></td>
+                                    <td><code>nome</code></td>
+                                    <td><code>razaoSocial</code> (Plus/Básico)<br><code>nomeEmpresarial</code> (Receita PJ)</td>
+                                    <td>Sempre sobrescreve, com "Atualizar Razão Social" marcado.</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Nome Fantasia</td>
+                                    <td><code>fantasia</code></td>
+                                    <td><code>fantasia</code></td>
+                                    <td><code>nomeFantasia</code></td>
+                                    <td>Só se estiver vazio.</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Telefone</td>
+                                    <td><code>telefone</code> (1º número)</td>
+                                    <td><code>telefone</code> (1º número)</td>
+                                    <td><code>telefones</code> (1º item)<br><code>telefone</code> (Receita PJ)</td>
+                                    <td>Só se estiver vazio, no formato (DD) NNNN-NNNN.</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">E-mail</td>
+                                    <td><code>email</code></td>
+                                    <td><code>email</code></td>
+                                    <td><code>emails</code> (1º item)<br><code>enderecoEletronico</code> (Receita PJ)</td>
+                                    <td>Só se estiver vazio.</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Inscrição Estadual</td>
+                                    <td class="text-muted">—</td>
+                                    <td>IE da UF de origem; senão, a IE ativa da UF do endereço. Só com "Consultar Inscrição
+                                        Estadual (Hub)" marcado.</td>
+                                    <td>Sintegra: <code>ie</code>; senão, a IE habilitada da UF. Consulta Completa e opção
+                                        Inscrição Estadual.</td>
+                                    <td>Só se estiver vazio.</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Regime Tributário</td>
+                                    <td>Simples/MEI</td>
+                                    <td class="text-muted">—</td>
+                                    <td>Plus: Simples/MEI<br>Receita PJ: regime de apuração do Sintegra<br>Básico: —</td>
+                                    <td>Só se estiver vazio. Simples ou MEI viram "Optante pelo Simples Nacional".</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Endereço<div class="small text-muted fw-normal">CEP, Logradouro,
+                                            Número, Complemento, Bairro, UF</div></td>
+                                    <td>Campos diretos</td>
+                                    <td>Campos diretos</td>
+                                    <td><code>enderecos</code> (1º item)<br>Campos diretos (Receita PJ)</td>
+                                    <td>Nova linha de endereço só se o CEP ainda não existir no cadastro. Logradouro, Bairro
+                                        e UF vêm da consulta de CEP quando ela responde.</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Cidade</td>
+                                    <td>Pelo CEP ou município + UF</td>
+                                    <td>Pelo CEP ou município + UF</td>
+                                    <td>Código IBGE do Sintegra; senão, CEP ou município + UF</td>
+                                    <td>Preenchida na linha nova de endereço.</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Nome (PF)</td>
+                                    <td class="text-muted">—</td>
+                                    <td><code>nome_da_pf</code> (CPF)</td>
+                                    <td class="text-muted">—</td>
+                                    <td>Sempre sobrescreve.</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Data de Nascimento</td>
+                                    <td class="text-muted">—</td>
+                                    <td>Data de nascimento (CPF)</td>
+                                    <td class="text-muted">—</td>
+                                    <td>Só se estiver vazio.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="eyebrow mb-3"><i class="bi bi-lightbulb-fill ic-amber me-1"></i> Observações</div>
+                    <ul class="small mb-0 ps-3">
+                        <li>Cada regra "Atualizar …" é uma opção da Configuração das Validações; com a opção desmarcada,
+                            o campo não é gravado por nenhum provedor.</li>
+                        <li>A Situação Cadastral não é gravada: CNPJ fora de "ATIVA" ou CPF fora de "REGULAR" ainda tem os
+                            dados gravados, mas a consulta devolve um aviso.</li>
+                        <li>O quadro de sócios vem nas respostas de CNPJ, mas não é gravado no cadastro.</li>
+                        <li>Na hierarquia padrão, um provedor só é consultado se o anterior falhou ou foi pulado (fora da
+                            hierarquia, sem saldo ou com o limite de consultas estourado).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Barra de ação fixa (aparece ao selecionar entidades) -->
+<div class="action-bar shadow" id="action-bar">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div>
+            <div class="text-muted small"><b id="ab-count">0</b> entidade(s) selecionada(s)</div>
+            <div class="small fw-semibold text-primary" id="ab-progress"></div>
+        </div>
+        <div class="flex-grow-1" style="min-width:220px">
+            <label class="form-label small text-muted mb-1" for="update-mode"><i class="bi bi-cloud-arrow-down-fill ic-purple me-1"></i>Consulta</label>
+            <select class="form-select form-select-sm" id="update-mode"></select>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" id="clear-selection"><i class="bi bi-x-circle-fill ic-orange me-1"></i>Limpar seleção</button>
+            <button type="button" class="btn btn-primary" id="run-update"><i class="bi bi-arrow-repeat me-1"></i>
+                Atualizar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay de carregamento -->
+<div id="overlay" class="position-fixed top-0 start-0 w-100 h-100 d-none align-items-center justify-content-center"
+    style="background:rgba(255,255,255,.65);z-index:1050">
+    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div>
+</div>
+
+<!-- Modal de aviso/confirmação -->
+<div class="modal fade" id="app-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="app-modal-title">Aviso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" id="app-modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary d-none" id="app-modal-cancel"
+                    data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="app-modal-confirm"
+                    data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>

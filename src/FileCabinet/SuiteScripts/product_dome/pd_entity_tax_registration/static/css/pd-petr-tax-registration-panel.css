@@ -1,0 +1,153 @@
+/* Painel do Cadastro Fiscal — tema da referência dbanking (pd-dbk-batch-send.css) sobre o
+   Bootstrap 5, mais abas, rolagem com cabeçalho fixo e badges de resultado. */
+
+:root {
+    --brand: #2b6777;
+    --brand-dark: #1e4a56;
+    --brand-wash: rgba(43, 103, 119, .09);
+    --sand-bg: #f6f2ea;
+    --sand-line: #e8e0d3;
+    --ic-blue: #2f6fde;
+    --ic-green: #1e8e5a;
+    --ic-orange: #e07b00;
+    --ic-red: #c0392b;
+    --ic-purple: #7b4fc9;
+    --ic-amber: #c98a04;
+}
+
+/* Ícones coloridos por tipo de ação (Tema DOME): azul = ver/pessoa/navegar, verde = datas/
+   confirmar/planilha, laranja = limpar/consumo, vermelho = custo, roxo = filtros secundários/
+   provedor, âmbar = saldos/valores. */
+.ic-brand { color: var(--brand) !important; }
+.ic-blue { color: var(--ic-blue) !important; }
+.ic-green { color: var(--ic-green) !important; }
+.ic-orange { color: var(--ic-orange) !important; }
+.ic-red { color: var(--ic-red) !important; }
+.ic-purple { color: var(--ic-purple) !important; }
+.ic-amber { color: var(--ic-amber) !important; }
+.btn:hover .ic-blue, .btn:hover .ic-green, .btn:hover .ic-orange { color: inherit !important; }
+
+body { background: var(--sand-bg); }
+
+.btn-primary {
+    --bs-btn-bg: var(--brand);
+    --bs-btn-border-color: var(--brand);
+    --bs-btn-hover-bg: var(--brand-dark);
+    --bs-btn-hover-border-color: var(--brand-dark);
+    --bs-btn-active-bg: var(--brand-dark);
+    --bs-btn-active-border-color: var(--brand-dark);
+    --bs-btn-disabled-bg: var(--brand);
+    --bs-btn-disabled-border-color: var(--brand);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--brand);
+    --bs-btn-border-color: var(--brand);
+    --bs-btn-hover-bg: var(--brand);
+    --bs-btn-hover-border-color: var(--brand);
+    --bs-btn-active-bg: var(--brand);
+    --bs-btn-active-border-color: var(--brand);
+}
+
+.text-primary { color: var(--brand) !important; }
+
+#home-link { border-radius: 999px; }
+
+.divider {
+    width: 1px;
+    height: 32px;
+    background: var(--sand-line);
+}
+
+.avatar {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--brand);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.eyebrow {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #000;
+}
+
+.kpi-accent { background: var(--brand-wash); }
+.kpi-accent .kpi-value { color: var(--brand); }
+
+/* Abas (menu do painel) */
+.petr-tabs { border-bottom-color: var(--sand-line); }
+.petr-tabs .nav-link { color: var(--brand-dark); font-weight: 600; }
+.petr-tabs .nav-link.active { color: var(--brand); background: #fff; border-color: var(--sand-line) var(--sand-line) #fff; }
+.petr-tabs .nav-link.disabled { color: #9aa5a8; }
+
+/* Rolagem da tabela com cabeçalho fixo */
+.petr-table-scroll {
+    max-height: 520px;
+    overflow-y: auto;
+}
+
+.petr-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #e9f0f1;
+    color: var(--brand-dark);
+    font-size: .72rem;
+    letter-spacing: .06em;
+    border: none;
+    white-space: nowrap;
+}
+
+.petr-table thead th:first-child { border-top-left-radius: 14px; }
+.petr-table thead th:last-child { border-top-right-radius: 14px; }
+
+.petr-table td { font-size: .9rem; }
+
+/* Tabela larga de entidades: rola na horizontal, com seleção e Nome fixos à esquerda */
+.petr-table-wide td { white-space: nowrap; }
+.petr-table-wide thead th { z-index: 2; }
+.petr-table-wide .petr-sticky { position: sticky; background: #fff; z-index: 1; }
+.petr-table-wide thead th.petr-sticky { background: #e9f0f1; z-index: 3; }
+.petr-table-wide .petr-sticky-check { left: 0; width: 44px; min-width: 44px; }
+.petr-table-wide .country-select { min-width: 170px; }
+.petr-table-wide .petr-sticky-name { left: 44px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; box-shadow: inset -1px 0 0 var(--sand-line); }
+
+/* Aba Retorno das APIs (informativa) */
+.provider-card li { margin-bottom: .35rem; }
+.provider-order { background: var(--brand-wash); color: var(--brand-dark); font-weight: 600; }
+.provider-table td { vertical-align: top; font-size: .85rem; min-width: 150px; }
+.provider-table code { color: var(--ic-purple); }
+
+/* Badges em tom suave */
+.petr-table .badge { font-weight: 600; }
+.petr-table .badge.bg-success { background: #dcefe2 !important; color: #23613a; }
+.petr-table .badge.bg-warning { background: #fbe8cf !important; color: #8a5a1f; }
+.petr-table .badge.bg-danger { background: #f6dede !important; color: #8a3030; }
+.petr-table .badge.bg-secondary { background: var(--brand-wash) !important; color: var(--brand-dark); }
+.petr-table .badge.bg-info { background: #e2ecf7 !important; color: #2c4f7c; }
+.result-badge[data-has-message="true"] { cursor: pointer; text-decoration: underline dotted; }
+
+/* Barra de ação fixa (desliza de baixo ao selecionar) */
+.action-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translate(-50%, 160%);
+    width: min(860px, calc(100% - 32px));
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 14px;
+    padding: 12px 18px;
+    z-index: 1040;
+    transition: transform .3s;
+}
+
+.action-bar.show { transform: translate(-50%, 0); }

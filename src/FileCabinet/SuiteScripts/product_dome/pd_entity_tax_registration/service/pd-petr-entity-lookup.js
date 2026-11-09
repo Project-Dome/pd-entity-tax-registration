@@ -20,7 +20,9 @@
  * - fetchCNPJForRecord: ação do RESTlet para o modo view — carrega o record por id, consulta,
  *   preenche e salva no servidor (em view o setValue do cliente não funciona). No DD_IE a UF vem
  *   do endereço do record carregado. Os avisos (qualidade dos dados, consulta e preenchimento)
- *   são juntados num só, porque a tela recarrega depois.
+ *   são juntados num só, porque a tela recarrega depois. Também é a ação usada pela atualização
+ *   em massa do Painel do Cadastro Fiscal, que interrompe pelo reason (MISSING_SETTINGS sem o
+ *   registro de Validações) e espera retryAfterSeconds no RATE_LIMIT_NO_FALLBACK.
  * - fetchCompanyDataForCnpj: ação do RESTlet para create/edit (por CNPJ, sem tocar em record).
  *   No DD_IE a UF chega do Client Script.
  * - manageCsvImport: o CSV Import conta como consulta automática (sempre DEFAULT). O
@@ -128,7 +130,7 @@ define(
             }
 
             if (!validationSettingsService.get()) {
-                return { success: false, error: MISSING_SETTINGS_MESSAGE };
+                return { success: false, error: MISSING_SETTINGS_MESSAGE, reason: 'MISSING_SETTINGS' };
             }
 
             var result = lookup(cnpj, mode, {
@@ -137,7 +139,7 @@ define(
             });
 
             if (!result.success) {
-                return { success: false, error: result.error, reason: result.reason };
+                return { success: false, error: result.error, reason: result.reason, retryAfterSeconds: result.retryAfterSeconds };
             }
 
             var validation = mode === MODES.DD_IE ? { valid: true } : validatorsService.validateApiResponse(result.data);

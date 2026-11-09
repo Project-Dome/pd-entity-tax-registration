@@ -31,6 +31,12 @@
  *   Erro no próprio cálculo (busca falhou, limite de uso) bloqueia com reason BALANCE_CHECK_ERROR:
  *   nunca libera sem saber o saldo; a tela acrescenta o pedido de acionar a Dome se persistir.
  * - Hub em créditos (soma de credits); DirectD em R$ (soma de cost).
+ * - getCurrentBalance() e list(): usados pelo Painel do Cadastro Fiscal
+ *   (docs/specs/tax-registration-panel.md). getCurrentBalance devolve o saldo arredondado ou null
+ *   (sem Créditos Carregados) e LANÇA em caso de erro — quem chama mostra o estado de erro. list()
+ *   pagina a busca (runPaged) e devolve os totais de créditos/custo do filtro inteiro, não só da
+ *   página. As datas do filtro chegam em ISO (AAAA-MM-DD, do input date do navegador) e o CPF/CNPJ
+ *   é comparado só pelos dígitos/letras, via fórmula, porque o documento é gravado como digitado.
  * - As datas da Configuração das APIs chegam da busca como texto no formato da conta —
  *   convertidas com N/format.parse.
  */
@@ -249,6 +255,123 @@ define(
             });
         }
 
+        function getCurrentBalance(providerKey, apiSettings) {
+            var balance = calculateBalance(providerKey, getBalanceSettings(providerKey, apiSettings || {}));
+
+            return balance === null ? null : roundAmount(providerKey, balance);
+        }
+
+        function parseIsoDate(value) {
+            var match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+
+            return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : null;
+        }
+
+        function buildListFilters(filters) {
+            var searchFilters = [['isinactive', 'is', 'F']];
+
+            var startDate = parseIsoDate(filters.startDate);
+            if (startDate) searchFilters.push('AND', [FIELDS.created.name, 'onorafter', formatDate(startDate)]);
+
+            var endDate = parseIsoDate(filters.endDate);
+            if (endDate) {
+                var dayAfterEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1);
+                searchFilters.push('AND', [FIELDS.created.name, 'before', formatDate(dayAfterEnd)]);
+            }
+
+            if (filters.provider) {
+                if (!PROVIDERS[filters.provider]) return null;
+
+                var providerId = findProviderId(filters.provider);
+                if (!providerId) return null;
+
+                searchFilters.push('AND', [FIELDS.provider.name, 'anyof', providerId]);
+            }
+
+            var documentDigits = String(filters.document || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+            if (documentDigits) {
+                var documentFormula = "UPPER(REPLACE(REPLACE(REPLACE(REPLACE({" + FIELDS.document.name + "}, '.', ''), '/', ''), '-', ''), ' ', ''))";
+                searchFilters.push('AND', ['formulatext: ' + documentFormula, 'contains', documentDigits]);
+            }
+
+            return searchFilters;
+        }
+
+        function sumListTotals(searchFilters) {
+            var totals = { hubCredits: 0, directdCost: 0 };
+
+            search.create({
+                type: TYPE,
+                filters: searchFilters,
+                columns: [
+                    search.createColumn({ name: FIELDS.credits.name, summary: search.Summary.SUM }),
+                    search.createColumn({ name: FIELDS.cost.name, summary: search.Summary.SUM })
+                ]
+            }).run().each(function (result) {
+                totals.hubCredits = Number(result.getValue({ name: FIELDS.credits.name, summary: search.Summary.SUM })) || 0;
+                totals.directdCost = Number(result.getValue({ name: FIELDS.cost.name, summary: search.Summary.SUM })) || 0;
+                return false;
+            });
+
+            totals.directdCost = Math.round(totals.directdCost * 100) / 100;
+
+            return totals;
+        }
+
+        function list(filters, pageSize) {
+            var emptyPage = { count: 0, pageCount: 0, page: 1, pageSize: pageSize, totals: { hubCredits: 0, directdCost: 0 }, rows: [] };
+            var searchFilters = buildListFilters(filters || {});
+
+            if (!searchFilters) return emptyPage;
+
+            var pagedData = search.create({
+                type: TYPE,
+                filters: searchFilters,
+                columns: [
+                    search.createColumn({ name: FIELDS.created.name, sort: search.Sort.DESC }),
+                    search.createColumn({ name: FIELDS.internalId.name, sort: search.Sort.DESC }),
+                    search.createColumn({ name: FIELDS.provider.name }),
+                    search.createColumn({ name: FIELDS.queryType.name }),
+                    search.createColumn({ name: FIELDS.document.name }),
+                    search.createColumn({ name: FIELDS.credits.name }),
+                    search.createColumn({ name: FIELDS.cost.name }),
+                    search.createColumn({ name: FIELDS.hubBalance.name }),
+                    search.createColumn({ name: FIELDS.directdBalance.name }),
+                    search.createColumn({ name: FIELDS.user.name })
+                ]
+            }).runPaged({ pageSize: pageSize });
+
+            if (!pagedData.count) return emptyPage;
+
+            var pageCount = pagedData.pageRanges.length;
+            var page = Math.min(Math.max(parseInt(filters.page, 10) || 1, 1), pageCount);
+            var rows = [];
+
+            pagedData.fetch({ index: page - 1 }).data.forEach(function (result) {
+                rows.push({
+                    id: result.id,
+                    created: result.getValue({ name: FIELDS.created.name }),
+                    provider: result.getText({ name: FIELDS.provider.name }),
+                    queryType: result.getValue({ name: FIELDS.queryType.name }),
+                    document: result.getValue({ name: FIELDS.document.name }),
+                    credits: result.getValue({ name: FIELDS.credits.name }),
+                    cost: result.getValue({ name: FIELDS.cost.name }),
+                    hubBalance: result.getValue({ name: FIELDS.hubBalance.name }),
+                    directdBalance: result.getValue({ name: FIELDS.directdBalance.name }),
+                    user: result.getText({ name: FIELDS.user.name })
+                });
+            });
+
+            return {
+                count: pagedData.count,
+                pageCount: pageCount,
+                page: page,
+                pageSize: pageSize,
+                totals: sumListTotals(searchFilters),
+                rows: rows
+            };
+        }
+
         function getBalanceSettings(providerKey, apiSettings) {
             if (providerKey === 'HUB') {
                 return {
@@ -356,7 +479,9 @@ define(
             trackHub: trackHub,
             summarize: summarize,
             checkBalance: checkBalance,
-            fillCurrentBalances: fillCurrentBalances
+            fillCurrentBalances: fillCurrentBalances,
+            getCurrentBalance: getCurrentBalance,
+            list: list
         };
     }
 );

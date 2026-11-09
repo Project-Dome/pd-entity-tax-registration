@@ -1,0 +1,24 @@
+<suitelet scriptid="customscript_pd_petr_tax_reg_panel_sl">
+  <name>PD | PETR | Tax Registration Panel SL</name>
+  <scriptfile>[/SuiteScripts/product_dome/pd_entity_tax_registration/pd_petr_suitelet/pd-petr-tax-registration-panel.sl.js]</scriptfile>
+  <notifyadmins>F</notifyadmins>
+  <notifyemails></notifyemails>
+  <notifyowner>T</notifyowner>
+  <notifyuser>F</notifyuser>
+  <isinactive>F</isinactive>
+  <description>Painel do Cadastro Fiscal (tax_reg = tax registration): aba Consumo de Créditos (consumo das APIs pagas e saldo atual da Hub do Desenvolvedor e da DirectD) e aba Clientes e Fornecedores (atualização em massa dos dados cadastrais pela consulta de CPF/CNPJ). Suitelet-casca: monta a página com os estáticos pd-petr-tax-registration-panel.html/.css/.js; os dados vêm dos RESTlets customscript_pd_petr_tax_reg_panel_rl e customscript_pd_petr_tax_reg_rl.</description>
+  <scriptdeployments>
+    <scriptdeployment scriptid="customdeploy_pd_petr_tax_reg_panel_sl">
+      <allemployees>T</allemployees>
+      <allpartners>T</allpartners>
+      <allroles>T</allroles>
+      <audslctrole></audslctrole>
+      <eventtype></eventtype>
+      <isdeployed>T</isdeployed>
+      <isonline>F</isonline>
+      <loglevel>DEBUG</loglevel>
+      <status>RELEASED</status>
+      <title>PD | PETR | Tax Registration Panel SL</title>
+    </scriptdeployment>
+  </scriptdeployments>
+</suitelet>

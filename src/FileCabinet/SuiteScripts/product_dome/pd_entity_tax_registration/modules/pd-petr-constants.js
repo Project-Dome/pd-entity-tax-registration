@@ -32,6 +32,13 @@
  *
  * DIRECTD.CHAIN_MODE_BY_LABEL: o valor de "Consulta DirectD na Hierarquia" é comparado pelo texto
  * da lista customlist_pd_petr_dd_chain_mode (mesmo padrão de REPORT_FREQUENCY).
+ *
+ * PANEL: Painel do Cadastro Fiscal (docs/specs/tax-registration-panel.md). STATICS são os nomes
+ * dos arquivos estáticos procurados pelo nome em todo o File Cabinet (pd-petr-suitelet.js) — por
+ * isso precisam ser únicos na conta. DIRECTD_MODE_SETTINGS liga cada modo da DirectD à flag do
+ * botão correspondente nas Validações: o painel só oferece o modo com o botão habilitado.
+ * BILLING_ADDRESS_JOIN é o join da busca de Customer/Vendor para ler campos personalizados do
+ * endereço de faturamento (Complemento), que não têm coluna bill* própria.
  */
 define([], function () {
 
@@ -89,7 +96,21 @@ define([], function () {
                 email: { name: 'email' },
                 taxRegime: { name: 'custentity_fte_entity_l_taxregime' },
                 stateRegistration: { name: 'custentity_brl_entity_t_state_tx_reg' },
-                birthDate: { name: 'custentity_pd_petr_birth_date_dt' }
+                birthDate: { name: 'custentity_pd_petr_birth_date_dt' },
+                entityId: { name: 'entityid' },
+                billCity: { name: 'billcity' },
+                billState: { name: 'billstate' },
+                billZip: { name: 'billzipcode' },
+                billAddress1: { name: 'billaddress1' },
+                billAddress2: { name: 'billaddress2' },
+                billAddress3: { name: 'billaddress3' },
+                lastModified: { name: 'lastmodifieddate' },
+                isInactive: { name: 'isinactive' }
+            },
+
+            RECORD_TYPES: {
+                CUSTOMER: 'customer',
+                VENDOR: 'vendor'
             },
 
             SUBLISTS: {
@@ -287,6 +308,43 @@ define([], function () {
             DATA_LOOKUP_SUITELET: {
                 SCRIPT_ID: 'customscript_pd_petr_data_lookup_sl',
                 DEPLOY_ID: 'customdeploy_pd_petr_data_lookup_sl'
+            },
+            PANEL_RESTLET: {
+                SCRIPT_ID: 'customscript_pd_petr_tax_reg_panel_rl',
+                DEPLOY_ID: 'customdeploy_pd_petr_tax_reg_panel_rl'
+            }
+        },
+
+        PANEL: {
+            TITLE: 'Cadastro Fiscal — Painel',
+            HOME_URL: '/app/center/card.nl',
+            ACTIONS: {
+                SETTINGS: 'settings',
+                CREDIT_USAGE: 'creditUsage',
+                ENTITIES: 'entities',
+                SET_COUNTRY: 'setCountry'
+            },
+            CREDIT_USAGE_PAGE_SIZE: 100,
+            ENTITIES_PAGE_SIZE: 50,
+            BILLING_ADDRESS_JOIN: 'billingAddress',
+            MAX_PAGE_SIZE: 1000,
+            STATICS: {
+                HTML: 'pd-petr-tax-registration-panel.html',
+                CSS: 'pd-petr-tax-registration-panel.css',
+                JS: 'pd-petr-tax-registration-panel-ui.js'
+            },
+            MODE_LABELS: {
+                DEFAULT: 'Hierarquia padrão (ReceitaWS → Hub → DirectD)',
+                DD_FULL: 'DirectD — Consulta Completa',
+                DD_PLUS: 'DirectD — CNPJ Plus',
+                DD_BASIC: 'DirectD — CNPJ Básico',
+                DD_IE: 'DirectD — Inscrição Estadual'
+            },
+            DIRECTD_MODE_SETTINGS: {
+                DD_FULL: 'enableDirectdFullButton',
+                DD_PLUS: 'enableDirectdPlusButton',
+                DD_BASIC: 'enableDirectdBasicButton',
+                DD_IE: 'enableDirectdStateRegButton'
             }
         },
 
